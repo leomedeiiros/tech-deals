@@ -1,43 +1,35 @@
 import React from 'react';
 
-const WhatsAppSender = ({ message, selectedImageFile, className }) => {
-
-  const handleShare = async () => {
+const WhatsAppSender = ({ message, className }) => {
+  const handleDirectWhatsApp = () => {
     if (!message) {
       alert("Nenhuma mensagem para compartilhar.");
       return;
     }
 
+    const encodedMessage = encodeURIComponent(message);
+
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
 
-    if (navigator.share && isMobile) {
-      try {
-        const shareData = {
-          title: 'Confira esta promoção!',
-          text: message
-        };
+    if (isMobile) {
+      // Tenta abrir o app diretamente
+      const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
+      window.location.href = whatsappUrl;
 
-        // Se houver uma imagem selecionada (File), adicionar ao compartilhamento
-        if (selectedImageFile instanceof File) {
-          shareData.files = [selectedImageFile];
-        }
-
-        await navigator.share(shareData);
-        console.log("Compartilhado com sucesso!");
-      } catch (err) {
-        console.error("Erro ao compartilhar:", err);
-      }
+      // Como fallback, após 2 segundos, tenta abrir o wa.me
+      setTimeout(() => {
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+      }, 2000);
     } else {
-      // Fallback para wa.me (só texto, sem imagem)
-      const encodedMessage = encodeURIComponent(message);
-      window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+      // Desktop sempre vai pro wa.me
+      window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
     }
   };
 
   return (
     <button 
       className={className || "share-btn"}
-      onClick={handleShare}
+      onClick={handleDirectWhatsApp}
       disabled={!message}
     >
       <i className="fab fa-whatsapp"></i>
