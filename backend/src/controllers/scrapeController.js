@@ -3,8 +3,6 @@ const amazonScraper = require('../services/amazonScraper');
 const mercadoLivreScraper = require('../services/mercadoLivreScraper');
 const linkResolver = require('../utils/linkResolver');
 const whatsappService = require('../services/whatsappService');
-const fs = require('fs');
-const path = require('path');
 
 exports.scrapeProduct = async (req, res) => {
   try {
@@ -16,26 +14,21 @@ exports.scrapeProduct = async (req, res) => {
 
     console.log(`Iniciando scraping para URL: ${url}`);
     
-    // Verificar se é um link do Mercado Livre no formato sec
     const isMercadoLivreAffiliate = url.includes('mercadolivre.com/sec/') || url.includes('mercadolibre.com/sec/');
     
-    // Para links do Mercado Livre no formato sec, não precisamos resolver - vamos direto para o scraping
     if (isMercadoLivreAffiliate) {
       console.log('Link de afiliado do Mercado Livre detectado. Usando scraper direto.');
       const productData = await mercadoLivreScraper.scrapeProductData(url);
-      // 🔹 Manter o link original que o usuário enviou
       productData.productUrl = url;
       console.log('Dados do produto extraídos com sucesso:', productData);
       return res.json(productData);
     }
     
-    // Para outros links, resolvemos normalmente
     const resolvedUrl = await linkResolver.resolveUrl(url);
     console.log(`URL resolvida: ${resolvedUrl}`);
     
     let productData;
     
-    // Determinar qual scraper usar baseado na URL
     if (resolvedUrl.includes('amazon.com.br') || resolvedUrl.includes('amazon.com')) {
       console.log('Usando Amazon Scraper');
       productData = await amazonScraper.scrapeProductData(resolvedUrl);
@@ -49,10 +42,8 @@ exports.scrapeProduct = async (req, res) => {
       return res.status(400).json({ error: 'URL não suportada. Apenas Amazon e Mercado Livre são suportados.' });
     }
     
-    // 🔹 Manter o link original que o usuário enviou
     productData.productUrl = url;
-    
-    // Verificar se os dados foram extraídos corretamente
+
     if (!productData.name || productData.name === 'Nome do produto não encontrado') {
       console.warn('Alerta: Nome do produto não foi extraído corretamente');
     }
@@ -65,7 +56,6 @@ exports.scrapeProduct = async (req, res) => {
     res.json(productData);
   } catch (error) {
     console.error('Erro ao fazer scraping:', error);
-    console.error(error.stack);
     res.status(500).json({ error: 'Falha ao obter dados do produto', details: error.message });
   }
 };
@@ -83,29 +73,5 @@ exports.sendWhatsApp = async (req, res) => {
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
     res.status(500).json({ error: 'Falha ao enviar mensagem', details: error.message });
-  }
-};
-
-exports.uploadImage = (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Nenhuma imagem enviada' });
-    }
-    
-    // Construir URL da imagem que foi salva
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    console.log(`Imagem enviada com sucesso: ${imageUrl}`);
-    
-    res.json({ 
-      success: true, 
-      imageUrl,
-      message: 'Imagem enviada com sucesso!'
-    });
-  } catch (error) {
-    console.error('Erro ao fazer upload da imagem:', error);
-    res.status(500).json({ 
-      error: 'Falha ao fazer upload da imagem', 
-      details: error.message 
-    });
   }
 };
