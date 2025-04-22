@@ -1,15 +1,21 @@
-// frontend/src/components/WhatsAppSender.js
 import React from 'react';
 
 const WhatsAppSender = ({ message, className }) => {
   const handleDirectWhatsApp = () => {
-    // Encoda mensagem para URL
+    if (!message) return;
+
     const encodedMessage = encodeURIComponent(message);
-    
-    // Abre o WhatsApp web ou app com a mensagem preenchida
-    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+
+    // Detectar se é mobile
+    const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+
+    const whatsappUrl = isMobile 
+      ? `whatsapp://send?text=${encodedMessage}`   // Força abrir no app do celular
+      : `https://web.whatsapp.com/send?text=${encodedMessage}`;  // Desktop
+
+    window.open(whatsappUrl, '_blank');
   };
-  
+
   return (
     <button 
       className={className || "share-btn"}
