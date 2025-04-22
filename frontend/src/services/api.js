@@ -1,7 +1,8 @@
- 
+// frontend/src/api.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3001/api';
+// Substitua pela URL fornecida pelo Render
+const API_URL = 'https://gerador-promocoes-backend.onrender.com/api';  // Coloque sua URL real aqui
 
 export const scrapeProduct = async (url) => {
   try {

@@ -1,4 +1,3 @@
-javascript// backend/src/services/mercadoLivreScraper.js
 const puppeteer = require('puppeteer');
 
 // Função auxiliar para substituir waitForTimeout
