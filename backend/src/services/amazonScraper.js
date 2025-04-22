@@ -10,7 +10,9 @@ exports.scrapeProductData = async (url) => {
       '--disable-gpu',
       '--disable-dev-shm-usage',
       '--single-process'
-    ]
+    ],
+    // Remover a referência ao executável externo
+    ignoreDefaultArgs: ['--disable-extensions']
   });
   
   try {
@@ -20,9 +22,6 @@ exports.scrapeProductData = async (url) => {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36');
     
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
-    
-    // O resto do código permanece o mesmo
-    // ...
     
     // Extrair dados do produto
     const productData = await page.evaluate(() => {

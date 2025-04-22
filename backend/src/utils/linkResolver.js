@@ -20,6 +20,8 @@ exports.resolveUrl = async (shortenedUrl) => {
       '--disable-dev-shm-usage',
       '--single-process'
     ],
+    // Remover a referência ao executável externo
+    ignoreDefaultArgs: ['--disable-extensions'],
     defaultViewport: { width: 1366, height: 768 }
   });
   
@@ -52,10 +54,10 @@ exports.resolveUrl = async (shortenedUrl) => {
       }
     });
     
-    // Configurar timeout para 60 segundos
+    // Configurar timeout para 90 segundos
     await page.goto(shortenedUrl, { 
       waitUntil: 'networkidle2',
-      timeout: 60000
+      timeout: 90000
     });
     
     // Usar função wait em vez de waitForTimeout

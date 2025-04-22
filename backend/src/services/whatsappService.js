@@ -6,14 +6,16 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 exports.sendMessage = async (message, chatName) => {
   const browser = await puppeteer.launch({
-    headless: 'new', // Alterado para headless
+    headless: 'new',
     args: [
-      '--no-sandbox', 
+      '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-gpu',
       '--disable-dev-shm-usage',
       '--single-process'
-    ]
+    ],
+    // Remover a referência ao executável externo
+    ignoreDefaultArgs: ['--disable-extensions']
   });
   
   try {
@@ -71,9 +73,7 @@ exports.sendMessage = async (message, chatName) => {
     console.error('Erro ao enviar mensagem pelo WhatsApp:', error);
     throw new Error('Falha ao enviar mensagem pelo WhatsApp');
   } finally {
-    // Fechar o navegador após 5 segundos (para dar tempo de ver se a mensagem foi enviada)
-    setTimeout(async () => {
-      await browser.close();
-    }, 5000);
+    // Fechar o navegador imediatamente
+    await browser.close();
   }
 };
