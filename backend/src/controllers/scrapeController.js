@@ -23,6 +23,8 @@ exports.scrapeProduct = async (req, res) => {
     if (isMercadoLivreAffiliate) {
       console.log('Link de afiliado do Mercado Livre detectado. Usando scraper direto.');
       const productData = await mercadoLivreScraper.scrapeProductData(url);
+      // 🔹 Manter o link original que o usuário enviou
+      productData.productUrl = url;
       console.log('Dados do produto extraídos com sucesso:', productData);
       return res.json(productData);
     }
@@ -46,6 +48,9 @@ exports.scrapeProduct = async (req, res) => {
     } else {
       return res.status(400).json({ error: 'URL não suportada. Apenas Amazon e Mercado Livre são suportados.' });
     }
+    
+    // 🔹 Manter o link original que o usuário enviou
+    productData.productUrl = url;
     
     // Verificar se os dados foram extraídos corretamente
     if (!productData.name || productData.name === 'Nome do produto não encontrado') {
