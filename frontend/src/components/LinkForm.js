@@ -15,12 +15,13 @@ const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
       setLoading(true);
       setError('');
       
-      const response = await axios.post('http://localhost:3001/api/scrape', { url });
+      // URL correta do backend no Render
+      const response = await axios.post('https://gerador-promocoes-backend.onrender.com/api/scrape', { url });
       onProductDataReceived(response.data);
     } catch (error) {
       console.error('Erro ao obter dados do produto:', error);
       setError(
-        error.response?.data?.error || 
+        error.response?.data?.error ||
         'Falha ao obter dados do produto. Verifique o link e tente novamente.'
       );
     } finally {
@@ -30,14 +31,14 @@ const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
   
   return (
     <>
-      <input 
+      <input
         type="url"
         className="form-input"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="Cole o link da Amazon ou Mercado Livre"
       />
-      <button 
+      <button
         className="btn extract-btn"
         onClick={handleExtract}
       >
