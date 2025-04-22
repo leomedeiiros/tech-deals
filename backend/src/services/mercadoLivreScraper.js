@@ -4,6 +4,7 @@ const puppeteer = require('puppeteer');
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 exports.scrapeProductData = async (url) => {
+  // Modificar a configuração de lançamento para não usar o Chrome do sistema
   const browser = await puppeteer.launch({
     headless: 'new',
     args: [
@@ -14,6 +15,9 @@ exports.scrapeProductData = async (url) => {
       '--single-process',
       '--disable-features=site-per-process'
     ],
+    // Remover a referência ao executável externo
+    // Deixar o Puppeteer usar o Chrome embutido
+    ignoreDefaultArgs: ['--disable-extensions'],
     defaultViewport: { width: 1366, height: 768 }
   });
   

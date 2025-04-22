@@ -57,8 +57,6 @@ COPY --from=build-frontend /app/frontend/build /app/backend/public
 # Define variáveis de ambiente
 ENV NODE_ENV=production
 ENV PORT=10000
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 # Expõe a porta usada pelo backend
 EXPOSE 10000
