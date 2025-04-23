@@ -10,19 +10,15 @@ function App() {
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [customImage, setCustomImage] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [storeType, setStoreType] = useState('');
   const [vendorName, setVendorName] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [includeImage, setIncludeImage] = useState(true); // Estado para controlar inclusão da imagem
   
   // Estados para controlar quais seções estão abertas
   const [infoSectionOpen, setInfoSectionOpen] = useState(true);
   const [storeSectionOpen, setStoreSectionOpen] = useState(false);
-  const [imageSectionOpen, setImageSectionOpen] = useState(false);
   
   // Referência para rolar a tela até a seção de configurações quando dados forem carregados
   const configSectionRef = useRef(null);
@@ -48,51 +44,8 @@ function App() {
       case 'store':
         setStoreSectionOpen(!storeSectionOpen);
         break;
-      case 'image':
-        setImageSectionOpen(!imageSectionOpen);
-        break;
       default:
         break;
-    }
-  };
-  
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // Validar tipo de arquivo
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (!validTypes.includes(file.type)) {
-      setError('Apenas imagens JPG, PNG ou GIF são permitidas.');
-      return;
-    }
-    
-    // Validar tamanho do arquivo (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('A imagem deve ter no máximo 5MB.');
-      return;
-    }
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    
-    try {
-      setUploadingImage(true);
-      setError('');
-      
-      // URL correta do backend no Render
-      const response = await axios.post(`${API_BASE_URL}/api/upload-image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      
-      setCustomImage(response.data.imageUrl);
-    } catch (error) {
-      console.error('Erro ao fazer upload da imagem:', error);
-      setError('Falha ao fazer upload da imagem. Tente novamente.');
-    } finally {
-      setUploadingImage(false);
     }
   };
   
@@ -128,7 +81,6 @@ function App() {
                 setLoading={setLoading}
                 setError={setError}
                 setCouponCode={setCouponCode}
-                setCustomImage={setCustomImage}
               />
               {error && <div className="error-message">{error}</div>}
             </div>
@@ -220,52 +172,6 @@ function App() {
           </div>
         )}
         
-        {/* Seção de Imagem do Produto */}
-        <div className="section-header" onClick={() => toggleSection('image')}>
-          <div className="section-title">
-            <i className="fas fa-image"></i>
-            Imagem do Produto
-            <span className="optional-tag">Opcional</span>
-          </div>
-          <i className={`fas fa-chevron-down chevron-icon ${imageSectionOpen ? 'open' : ''}`}></i>
-        </div>
-        
-        {imageSectionOpen && (
-          <div className="section-content">
-            <div className="form-group">
-              <div className="file-input-container">
-                <input 
-                  type="file"
-                  accept="image/*"
-                  className="file-input"
-                  onChange={handleImageUpload}
-                  disabled={uploadingImage}
-                />
-                {uploadingImage && (
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center' }}>
-                    <div className="loading"></div>
-                    <span>Enviando imagem...</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Opção para incluir imagem na mensagem */}
-              <div className="checkbox-group" style={{ marginTop: '15px' }}>
-                <input
-                  type="checkbox"
-                  id="include-image"
-                  className="checkbox-input"
-                  checked={includeImage}
-                  onChange={() => setIncludeImage(!includeImage)}
-                />
-                <label htmlFor="include-image" className="checkbox-label">
-                  Incluir link da imagem na mensagem
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
-        
         {loading ? (
           <div className="section-content" style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
@@ -275,14 +181,6 @@ function App() {
           </div>
         ) : productData ? (
           <div className="preview-section">
-            {(customImage || productData.imageUrl) && (
-              <img 
-                src={customImage || productData.imageUrl} 
-                alt={productData.name} 
-                className="product-image"
-              />
-            )}
-            
             <p className="preview-label">Prévia da mensagem:</p>
             
             <MessagePreview 
@@ -291,8 +189,6 @@ function App() {
               storeType={storeType}
               vendorName={vendorName}
               discountPercentage={discountPercentage}
-              customImage={customImage}
-              includeImage={includeImage}
               setFinalMessage={setFinalMessage}
             />
             

@@ -7,8 +7,6 @@ const MessagePreview = ({
   storeType, 
   vendorName,
   discountPercentage,
-  customImage,
-  includeImage,
   setFinalMessage
 }) => {
   // Função para formatar o preço
@@ -142,11 +140,6 @@ const MessagePreview = ({
     // Adicionar link do produto
     message += `\n🛒 ${productUrl}`;
     
-    // Adicionar link da imagem se a opção estiver ativada
-    if (includeImage && (customImage || productData.imageUrl)) {
-      message += `\n\n📷 Imagem do produto: ${customImage || productData.imageUrl}`;
-    }
-    
     message += `\n\n☑️ Link do grupo: https://linktr.ee/gdfit`;
     
     return message;
@@ -158,7 +151,7 @@ const MessagePreview = ({
       const message = generateMessage();
       setFinalMessage(message);
     }
-  }, [productData, couponCode, storeType, vendorName, discountPercentage, customImage, includeImage]);
+  }, [productData, couponCode, storeType, vendorName, discountPercentage]);
   
   return (
     <div className="message-preview">
