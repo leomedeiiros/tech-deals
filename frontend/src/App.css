@@ -14,6 +14,7 @@
   --accent-color: #22c55e;
   --optional-tag: #845ef7;
   --danger-color: #e11d48;
+  --warning-color: #f59e0b;
   --border-radius: 8px;
   --shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   --transition: all 0.2s ease;
@@ -156,6 +157,28 @@ body {
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: 10px;
+}
+
+/* Novo grid para campos de desconto */
+.discount-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+/* Aviso para uso simultâneo de descontos */
+.discount-warning {
+  margin-top: 5px;
+  color: var(--warning-color);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(245, 158, 11, 0.1);
+  padding: 8px 10px;
+  border-radius: var(--border-radius);
+  border-left: 3px solid var(--warning-color);
 }
 
 .web-share-info {
@@ -549,5 +572,31 @@ body {
   .store-type-group {
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+  
+  .discount-fields-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  /* Ajustes para telas menores */
+  .section-content {
+    padding: 15px;
+  }
+
+  .form-input,
+  .message-preview {
+    font-size: 0.85rem;
+  }
+
+  .btn,
+  .copy-btn,
+  .share-btn {
+    font-size: 0.9rem;
+    padding: 10px;
+  }
+
+  .preview-image {
+    max-height: 200px;
   }
 }

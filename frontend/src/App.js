@@ -31,6 +31,7 @@ function App() {
   const [recentLinks, setRecentLinks] = useState(loadFromLocalStorage('recentLinks', []));
   const [recentCoupons, setRecentCoupons] = useState(loadFromLocalStorage('recentCoupons', []));
   const [recentDiscounts, setRecentDiscounts] = useState(loadFromLocalStorage('recentDiscounts', []));
+  const [recentDiscountValues, setRecentDiscountValues] = useState(loadFromLocalStorage('recentDiscountValues', []));
 
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,7 @@ function App() {
   const [storeType, setStoreType] = useState('');
   const [vendorName, setVendorName] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
+  const [discountValue, setDiscountValue] = useState(''); // Novo estado para desconto em R$
   const [finalMessage, setFinalMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   
@@ -67,6 +69,10 @@ function App() {
   useEffect(() => {
     saveToLocalStorage('recentDiscounts', recentDiscounts);
   }, [recentDiscounts]);
+
+  useEffect(() => {
+    saveToLocalStorage('recentDiscountValues', recentDiscountValues);
+  }, [recentDiscountValues]);
   
   // Função para adicionar ao histórico sem duplicar
   const addToHistory = (value, setter, currentArray, maxItems = 10) => {
@@ -110,9 +116,15 @@ function App() {
       (data.platform && typeof data.platform === 'string' && 
       (data.platform.toLowerCase().includes('mercadolivre') || 
        data.platform.toLowerCase().includes('mercadolibre')));
+       
+    const isAmazon = 
+      (url && (url.includes('amazon.com') || url.includes('amazon.com.br'))) ||
+      (data.vendor && data.vendor.toLowerCase().includes('amazon')) ||
+      (data.platform && typeof data.platform === 'string' && 
+       data.platform.toLowerCase().includes('amazon'));
       
     // DEFINIR TIPO DE LOJA PADRÃO
-    if (data.vendor === 'Amazon') {
+    if (isAmazon) {
       setStoreType('amazon');
     } else if (isMercadoLivre) {
       // Para o Mercado Livre, definir SEMPRE como "loja_oficial" por padrão
@@ -169,8 +181,20 @@ function App() {
   // Handler para porcentagem de desconto
   const handleDiscountChange = (value) => {
     setDiscountPercentage(value);
+    // Se preencheu porcentagem, limpa o valor de desconto em R$
     if (value) {
+      setDiscountValue('');
       addToHistory(value, setRecentDiscounts, recentDiscounts);
+    }
+  };
+  
+  // Handler para valor de desconto em R$
+  const handleDiscountValueChange = (value) => {
+    setDiscountValue(value);
+    // Se preencheu valor em R$, limpa a porcentagem
+    if (value) {
+      setDiscountPercentage('');
+      addToHistory(value, setRecentDiscountValues, recentDiscountValues);
     }
   };
   
@@ -368,7 +392,7 @@ function App() {
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.3</span>
+        <span className="app-version">Versão 2.4</span>
       </header>
       
       <div className="main-card">
@@ -412,19 +436,41 @@ function App() {
               )}
             </div>
             
-            <div className="form-group">
-              <label className="form-label">
-                <i className="fas fa-percent"></i> Porcentagem de Desconto Manual <span className="optional-tag">Opcional</span>
-              </label>
-              {renderInputWithClear(
-                discountPercentage, 
-                handleDiscountChange, 
-                "Ex: 20 (sem o símbolo %)", 
-                "number", 
-                "discount-history", 
-                recentDiscounts
-              )}
+            <div className="discount-fields-grid">
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="fas fa-percent"></i> Desconto % <span className="optional-tag">Opcional</span>
+                </label>
+                {renderInputWithClear(
+                  discountPercentage, 
+                  handleDiscountChange, 
+                  "Ex: 20 (sem o símbolo %)", 
+                  "number", 
+                  "discount-history", 
+                  recentDiscounts
+                )}
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="fas fa-dollar-sign"></i> Desconto em R$ <span className="optional-tag">Opcional</span>
+                </label>
+                {renderInputWithClear(
+                  discountValue, 
+                  handleDiscountValueChange, 
+                  "Ex: 50", 
+                  "number", 
+                  "discount-value-history", 
+                  recentDiscountValues
+                )}
+              </div>
             </div>
+            
+            {(discountPercentage && discountValue) && (
+              <div className="discount-warning">
+                <i className="fas fa-exclamation-triangle"></i> Atenção: Use apenas um tipo de desconto por vez.
+              </div>
+            )}
           </div>
         )}
         
@@ -572,6 +618,7 @@ function App() {
                 storeType={storeType}
                 vendorName={vendorName}
                 discountPercentage={discountPercentage}
+                discountValue={discountValue}
                 setFinalMessage={setFinalMessage}
               />
             </div>

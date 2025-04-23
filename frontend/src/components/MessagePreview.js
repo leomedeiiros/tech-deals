@@ -7,6 +7,7 @@ const MessagePreview = ({
   storeType, 
   vendorName,
   discountPercentage,
+  discountValue,
   setFinalMessage
 }) => {
   // Função para formatar o preço (agora arredonda para baixo)
@@ -26,8 +27,8 @@ const MessagePreview = ({
     return price.trim();
   };
   
-  // Função para calcular preço com desconto
-  const calculateDiscountedPrice = (currentPrice) => {
+  // Função para calcular preço com desconto percentual
+  const calculatePercentageDiscount = (currentPrice) => {
     if (!discountPercentage || discountPercentage <= 0 || !currentPrice) {
       return currentPrice;
     }
@@ -49,6 +50,39 @@ const MessagePreview = ({
     // Calcular o preço com desconto
     const discountRate = parseFloat(discountPercentage) / 100;
     const discountedPrice = priceNum * (1 - discountRate);
+    
+    // Arredondar para baixo (remover centavos)
+    return Math.floor(discountedPrice).toString();
+  };
+  
+  // Função para calcular preço com desconto em valor fixo (R$)
+  const calculateValueDiscount = (currentPrice) => {
+    if (!discountValue || discountValue <= 0 || !currentPrice) {
+      return currentPrice;
+    }
+    
+    // Converter o preço para número
+    let priceNum;
+    if (currentPrice.includes(',')) {
+      // Se o preço já está no formato brasileiro (ex: "159,99")
+      priceNum = parseFloat(currentPrice.replace('.', '').replace(',', '.'));
+    } else {
+      // Se o preço está com ponto decimal
+      priceNum = parseFloat(currentPrice);
+    }
+    
+    if (isNaN(priceNum)) {
+      return currentPrice;
+    }
+    
+    // Calcular o preço com desconto em valor fixo
+    const discount = parseFloat(discountValue);
+    const discountedPrice = priceNum - discount;
+    
+    // Garantir que o preço não fique negativo
+    if (discountedPrice <= 0) {
+      return "1"; // Preço mínimo de R$ 1
+    }
     
     // Arredondar para baixo (remover centavos)
     return Math.floor(discountedPrice).toString();
@@ -113,6 +147,12 @@ const MessagePreview = ({
     }
   };
   
+  // Verificar se é Amazon para determinar como mostrar preço
+  const isAmazon = storeType === 'amazon' || 
+                  (productData && productData.vendor === 'Amazon') ||
+                  (productData && productData.platform && 
+                   productData.platform.toLowerCase().includes('amazon'));
+  
   // Função para gerar a mensagem final
   const generateMessage = () => {
     if (!productData) return '';
@@ -122,17 +162,31 @@ const MessagePreview = ({
     
     let priceText = '';
     
-    // Calcular preço com desconto se fornecido
+    // Processar preço atual para remover centavos
     const processedCurrentPrice = formatPrice(currentPrice);
-    const finalPrice = discountPercentage ? calculateDiscountedPrice(processedCurrentPrice) : processedCurrentPrice;
     
-    // Verificar se há um desconto real
+    // Determinar preço final (com possíveis descontos)
+    let finalPrice = processedCurrentPrice;
+    if (discountPercentage) {
+      finalPrice = calculatePercentageDiscount(processedCurrentPrice);
+    } else if (discountValue) {
+      finalPrice = calculateValueDiscount(processedCurrentPrice);
+    }
+    
+    // Processar preço original para remover centavos
     const processedOriginalPrice = formatPrice(originalPrice);
-    if (processedOriginalPrice && hasRealDiscount(processedOriginalPrice, finalPrice)) {
-      priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
-    } else {
-      // Caso não tenha desconto, mostrar apenas o preço atual
+    
+    // Para Amazon, mostrar apenas o preço atual (sem o original)
+    if (isAmazon) {
       priceText = `✅  Por *R$ ${finalPrice}*`;
+    } else {
+      // Para outras lojas, verificar se há desconto real
+      if (processedOriginalPrice && hasRealDiscount(processedOriginalPrice, finalPrice)) {
+        priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
+      } else {
+        // Caso não tenha desconto, mostrar apenas o preço atual
+        priceText = `✅  Por *R$ ${finalPrice}*`;
+      }
     }
     
     let message = `➡️ *${name}*`;
@@ -161,7 +215,7 @@ const MessagePreview = ({
       const message = generateMessage();
       setFinalMessage(message);
     }
-  }, [productData, couponCode, storeType, vendorName, discountPercentage]);
+  }, [productData, couponCode, storeType, vendorName, discountPercentage, discountValue]);
   
   return generateMessage();
 };
