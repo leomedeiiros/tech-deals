@@ -8,7 +8,7 @@ const MessagePreview = ({
   vendorName,
   discountPercentage,
   customImage,
-  includeImage, // Novo parâmetro
+  includeImage,
   setFinalMessage
 }) => {
   // Função para formatar o preço
@@ -124,7 +124,7 @@ const MessagePreview = ({
       priceText = `✅  ~De R$ ${formatPrice(originalPrice)}~ por *R$ ${formatPrice(finalPrice)}*`;
     } else {
       // Caso não tenha desconto, mostrar apenas o preço atual
-      priceText = `✅  Por R$ ${formatPrice(finalPrice)}`;
+      priceText = `✅  Por *R$ ${formatPrice(finalPrice)}*`;
     }
     
     let message = `➡️ *${name}*`;
