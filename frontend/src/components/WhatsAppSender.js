@@ -8,20 +8,23 @@ const WhatsAppSender = ({ message, className }) => {
     }
 
     const encodedMessage = encodeURIComponent(message);
-
+    
+    // Verificar se é dispositivo móvel
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
-
+    
     if (isMobile) {
-      // Tenta abrir o app diretamente
-      const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
-      window.location.href = whatsappUrl;
-
-      // Como fallback, após 2 segundos, tenta abrir o wa.me
+      // Em dispositivos móveis, tentar abrir diretamente o app
+      window.location.href = `whatsapp://send?text=${encodedMessage}`;
+      
+      // Como fallback, se após 1 segundo o usuário ainda estiver na página,
+      // redirecionar para o wa.me que funciona melhor em iOS
       setTimeout(() => {
-        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
-      }, 2000);
+        if (document.hasFocus()) {
+          window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
+        }
+      }, 1000);
     } else {
-      // Desktop sempre vai pro wa.me
+      // Em desktop, abrir o WhatsApp Web
       window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
     }
   };

@@ -291,7 +291,25 @@ function App() {
                 className="share-btn"
                 onClick={() => {
                   const encodedMessage = encodeURIComponent(finalMessage);
-                  window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+                  
+                  // Verificar se é dispositivo móvel
+                  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+                  
+                  if (isMobile) {
+                    // Em dispositivos móveis, tentar abrir diretamente o app
+                    window.location.href = `whatsapp://send?text=${encodedMessage}`;
+                    
+                    // Como fallback, se após 1 segundo o usuário ainda estiver na página,
+                    // redirecionar para o api.whatsapp.com que funciona melhor em iOS
+                    setTimeout(() => {
+                      if (document.hasFocus()) {
+                        window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
+                      }
+                    }, 1000);
+                  } else {
+                    // Em desktop, abrir o WhatsApp Web
+                    window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
+                  }
                 }}
               >
                 <i className="fab fa-whatsapp"></i>
