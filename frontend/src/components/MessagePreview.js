@@ -7,7 +7,6 @@ const MessagePreview = ({
   storeType, 
   vendorName,
   discountPercentage,
-  customImage,
   setFinalMessage
 }) => {
   // Função para formatar o preço (agora arredonda para baixo)
@@ -108,7 +107,7 @@ const MessagePreview = ({
       case 'catalogo':
         return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor '${vendorName || 'Informe o nome do vendedor'}' (loja oficial)`;
       case 'loja_validada':
-        return 'Loja Validada no Mercado Livre';
+        return 'Loja validada no Mercado Livre'; // 'v' minúsculo conforme solicitado
       default:
         return '';
     }
@@ -116,6 +115,8 @@ const MessagePreview = ({
   
   // Função para gerar a mensagem final
   const generateMessage = () => {
+    if (!productData) return '';
+    
     const { name, currentPrice, originalPrice, productUrl } = productData;
     const storeTypeText = getStoreTypeText();
     
@@ -162,25 +163,7 @@ const MessagePreview = ({
     }
   }, [productData, couponCode, storeType, vendorName, discountPercentage]);
   
-  // Determinar a imagem a ser exibida (personalizada ou do produto)
-  const imageToShow = customImage ? customImage : (productData && productData.imageUrl ? productData.imageUrl : '');
-  
-  return (
-    <div className="message-preview-container">
-      {imageToShow && (
-        <div className="preview-image-container">
-          <img 
-            src={imageToShow} 
-            alt={productData ? productData.name : 'Imagem da promoção'} 
-            className="preview-image"
-          />
-        </div>
-      )}
-      <div className="message-preview">
-        {productData ? generateMessage() : 'Preencha os dados acima para visualizar a mensagem.'}
-      </div>
-    </div>
-  );
+  return generateMessage();
 };
 
 export default MessagePreview;

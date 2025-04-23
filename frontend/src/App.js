@@ -15,8 +15,7 @@ function App() {
   const [vendorName, setVendorName] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
-  const [editableMessage, setEditableMessage] = useState('');
-  const [isMessageEdited, setIsMessageEdited] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   
   // Estado para a imagem personalizada
   const [customImage, setCustomImage] = useState('');
@@ -28,8 +27,8 @@ function App() {
   const [storeSectionOpen, setStoreSectionOpen] = useState(true); // Agora inicia expandido
   const [imageSectionOpen, setImageSectionOpen] = useState(false);
   
-  // Referência para rolar a tela até a seção de configurações quando dados forem carregados
-  const configSectionRef = useRef(null);
+  // Referência para a prévia da mensagem editável
+  const messagePreviewRef = useRef(null);
   
   const handleProductDataReceived = (data) => {
     // Arredondar preços para baixo (remover centavos)
@@ -53,6 +52,9 @@ function App() {
     } else {
       setStoreType('loja_validada');
     }
+    
+    // Resetar edição quando novos dados são carregados
+    setIsEditing(false);
   };
   
   // Função para arredondar preço para baixo (remover centavos)
@@ -144,17 +146,23 @@ function App() {
     setImageFile(null);
   };
   
-  // Handler para edição de mensagem
-  const handleMessageEdit = (e) => {
-    setEditableMessage(e.target.value);
-    setIsMessageEdited(true);
+  // Habilitar modo de edição para a mensagem
+  const enableEditing = () => {
+    if (!isEditing && messagePreviewRef.current) {
+      setIsEditing(true);
+      messagePreviewRef.current.setAttribute('contenteditable', 'true');
+      messagePreviewRef.current.focus();
+    }
   };
   
-  // Resetar estado de edição quando novos dados são recebidos
-  const handleMessageGenerated = (message) => {
-    setFinalMessage(message);
-    setEditableMessage(message);
-    setIsMessageEdited(false);
+  // Desabilitar modo de edição para a mensagem
+  const disableEditing = () => {
+    if (isEditing && messagePreviewRef.current) {
+      setIsEditing(false);
+      messagePreviewRef.current.setAttribute('contenteditable', 'false');
+      // Atualizar a mensagem final com o conteúdo editado
+      setFinalMessage(messagePreviewRef.current.innerText);
+    }
   };
   
   // Função para renderizar um campo de texto com botão de limpar
@@ -183,12 +191,18 @@ function App() {
   
   // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
   const shareWhatsApp = async () => {
-    const messageToShare = isMessageEdited ? editableMessage : finalMessage;
-    
-    if (!messageToShare) {
+    if (!finalMessage) {
       setError('Nenhuma mensagem para compartilhar.');
       return;
     }
+    
+    // Se estamos em modo de edição, desabilite primeiro para garantir que o conteúdo foi salvo
+    if (isEditing) {
+      disableEditing();
+    }
+
+    // Obter a mensagem atual (possivelmente editada)
+    const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
 
     // Verificar se o navegador suporta Web Share API com arquivos
     if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
@@ -229,7 +243,13 @@ function App() {
   
   // Copiar mensagem para o clipboard
   const copyMessage = () => {
-    const messageToShare = isMessageEdited ? editableMessage : finalMessage;
+    // Se estamos em modo de edição, desabilite primeiro para garantir que o conteúdo foi salvo
+    if (isEditing) {
+      disableEditing();
+    }
+
+    // Obter a mensagem atual (possivelmente editada)
+    const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
     
     if (!messageToShare) {
       setError('Nenhuma mensagem para copiar.');
@@ -335,7 +355,7 @@ function App() {
                 className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
                 onClick={() => setStoreType('loja_validada')}
               >
-                <i className="fas fa-shield-alt"></i> Loja Validada
+                <i className="fas fa-shield-alt"></i> Loja validada
               </button>
               <button 
                 className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
@@ -419,28 +439,39 @@ function App() {
           <div className="preview-section">
             <p className="preview-label">Prévia da mensagem:</p>
             
-            <MessagePreview 
-              productData={productData}
-              couponCode={couponCode}
-              storeType={storeType}
-              vendorName={vendorName}
-              discountPercentage={discountPercentage}
-              customImage={customImage}
-              setFinalMessage={handleMessageGenerated}
-            />
+            {/* Imagem da Prévia */}
+            {(customImage || (productData && productData.imageUrl)) && (
+              <div className="preview-image-container">
+                <img 
+                  src={customImage || productData.imageUrl} 
+                  alt={productData.name || 'Imagem da promoção'} 
+                  className="preview-image"
+                />
+              </div>
+            )}
             
-            {/* Editor de mensagem */}
-            <div className="message-editor-container">
-              <label className="form-label">
-                <i className="fas fa-edit"></i> Editar mensagem <span className="optional-tag">Opcional</span>
-              </label>
-              <textarea 
-                className="message-editor"
-                value={editableMessage}
-                onChange={handleMessageEdit}
-                rows={10}
-                placeholder="A mensagem gerada aparecerá aqui. Você pode editá-la conforme desejar."
-              ></textarea>
+            {/* Mensagem editável */}
+            <div 
+              ref={messagePreviewRef}
+              className={`message-preview ${isEditing ? 'editing' : ''}`}
+              onClick={enableEditing}
+              onBlur={disableEditing}
+              contentEditable={isEditing}
+              suppressContentEditableWarning={true}
+            >
+              <MessagePreview 
+                productData={productData}
+                couponCode={couponCode}
+                storeType={storeType}
+                vendorName={vendorName}
+                discountPercentage={discountPercentage}
+                setFinalMessage={setFinalMessage}
+              />
+            </div>
+            
+            {/* Texto de instrução para editar */}
+            <div className="edit-instructions">
+              <i className="fas fa-edit"></i> Clique na mensagem para editar
             </div>
             
             <div className="actions-row">
