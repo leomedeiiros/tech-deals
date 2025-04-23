@@ -16,9 +16,15 @@ function App() {
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
   
+  // Estado para a imagem personalizada
+  const [customImage, setCustomImage] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageFile, setImageFile] = useState(null); // Para armazenar o objeto File da imagem
+  
   // Estados para controlar quais seções estão abertas
   const [infoSectionOpen, setInfoSectionOpen] = useState(true);
   const [storeSectionOpen, setStoreSectionOpen] = useState(false);
+  const [imageSectionOpen, setImageSectionOpen] = useState(false);
   
   // Referência para rolar a tela até a seção de configurações quando dados forem carregados
   const configSectionRef = useRef(null);
@@ -44,9 +50,68 @@ function App() {
       case 'store':
         setStoreSectionOpen(!storeSectionOpen);
         break;
+      case 'image':
+        setImageSectionOpen(!imageSectionOpen);
+        break;
       default:
         break;
     }
+  };
+  
+  // Função para carregar imagem personalizada
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Verificar tamanho e tipo do arquivo
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      setError('A imagem não pode ser maior que 5MB');
+      return;
+    }
+    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Apenas imagens nos formatos JPG, JPEG, PNG e GIF são permitidas');
+      return;
+    }
+    
+    // Guardar o objeto File para uso posterior com a Web Share API
+    setImageFile(file);
+    
+    // Upload da imagem para o servidor
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+      setUploadingImage(true);
+      setError('');
+      
+      const response = await axios.post(`${API_BASE_URL}/api/upload-image`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      if (response.data.success) {
+        setCustomImage(response.data.imageUrl);
+      } else {
+        setError('Erro ao fazer upload da imagem');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar imagem:', error);
+      setError(
+        error.response?.data?.error ||
+        'Falha ao fazer upload da imagem. Tente novamente.'
+      );
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+  
+  // Função para remover a imagem personalizada
+  const removeCustomImage = () => {
+    setCustomImage('');
+    setImageFile(null);
   };
   
   // Função para renderizar um campo de texto com botão de limpar
@@ -73,11 +138,55 @@ function App() {
     );
   };
   
+  // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
+  const shareWhatsApp = async () => {
+    if (!finalMessage) {
+      setError('Nenhuma mensagem para compartilhar.');
+      return;
+    }
+
+    // Verificar se o navegador suporta Web Share API com arquivos
+    if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+      try {
+        await navigator.share({
+          text: finalMessage,
+          files: [imageFile]
+        });
+        return; // Se compartilhou com sucesso, encerra a função
+      } catch (err) {
+        console.warn('Compartilhamento com arquivo falhou:', err);
+        // Continua para o fallback abaixo
+      }
+    }
+    
+    // Fallback para o método tradicional (apenas texto)
+    const encodedMessage = encodeURIComponent(finalMessage);
+    
+    // Verificar se é dispositivo móvel
+    const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Em dispositivos móveis, tentar abrir diretamente o app
+      window.location.href = `whatsapp://send?text=${encodedMessage}`;
+      
+      // Como fallback, se após 1 segundo o usuário ainda estiver na página,
+      // redirecionar para o api.whatsapp.com que funciona melhor em iOS
+      setTimeout(() => {
+        if (document.hasFocus()) {
+          window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
+        }
+      }, 1000);
+    } else {
+      // Em desktop, abrir o WhatsApp Web
+      window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
+    }
+  };
+  
   return (
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.0</span>
+        <span className="app-version">Versão 2.1</span>
       </header>
       
       <div className="main-card">
@@ -175,6 +284,60 @@ function App() {
           </div>
         )}
         
+        {/* Nova Seção: Imagem Personalizada */}
+        <div className="section-header" onClick={() => toggleSection('image')}>
+          <div className="section-title">
+            <i className="fas fa-image"></i>
+            Imagem Personalizada
+            <span className="optional-tag">Opcional</span>
+          </div>
+          <i className={`fas fa-chevron-down chevron-icon ${imageSectionOpen ? 'open' : ''}`}></i>
+        </div>
+        
+        {imageSectionOpen && (
+          <div className="section-content">
+            <div className="form-group">
+              <label className="form-label">Upload de imagem</label>
+              <p className="form-description">
+                Carregue uma imagem personalizada para sua promoção. 
+                Se não for fornecida, será usada a imagem do produto.
+              </p>
+              <div className="web-share-info">
+                <p className="web-share-info-text">
+                  <i className="fas fa-info-circle"></i> Em dispositivos móveis compatíveis, a imagem será anexada junto com a mensagem.
+                </p>
+              </div>
+              
+              <div className="file-upload-container">
+                <input 
+                  type="file" 
+                  accept="image/jpeg,image/png,image/gif,image/jpg" 
+                  onChange={handleImageUpload}
+                  id="image-upload"
+                  className="file-input"
+                  disabled={uploadingImage}
+                />
+              </div>
+              
+              {uploadingImage && (
+                <div className="upload-status">
+                  <div className="loading"></div>
+                  <span>Enviando imagem...</span>
+                </div>
+              )}
+              
+              {customImage && (
+                <div className="custom-image-preview">
+                  <img src={customImage} alt="Imagem personalizada" className="uploaded-image" />
+                  <button onClick={removeCustomImage} className="btn-sm btn-danger">
+                    <i className="fas fa-trash-alt"></i> Remover
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
         {loading ? (
           <div className="section-content" style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
@@ -192,6 +355,7 @@ function App() {
               storeType={storeType}
               vendorName={vendorName}
               discountPercentage={discountPercentage}
+              customImage={customImage}
               setFinalMessage={setFinalMessage}
             />
             
@@ -206,28 +370,7 @@ function App() {
               
               <button 
                 className="share-btn"
-                onClick={() => {
-                  const encodedMessage = encodeURIComponent(finalMessage);
-                  
-                  // Verificar se é dispositivo móvel
-                  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
-                  
-                  if (isMobile) {
-                    // Em dispositivos móveis, tentar abrir diretamente o app
-                    window.location.href = `whatsapp://send?text=${encodedMessage}`;
-                    
-                    // Como fallback, se após 1 segundo o usuário ainda estiver na página,
-                    // redirecionar para o api.whatsapp.com que funciona melhor em iOS
-                    setTimeout(() => {
-                      if (document.hasFocus()) {
-                        window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
-                      }
-                    }, 1000);
-                  } else {
-                    // Em desktop, abrir o WhatsApp Web
-                    window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
-                  }
-                }}
+                onClick={shareWhatsApp}
               >
                 <i className="fab fa-whatsapp"></i>
                 Compartilhar no WhatsApp
