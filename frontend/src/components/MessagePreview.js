@@ -126,6 +126,27 @@ const MessagePreview = ({
   
   // Função para gerar texto de tipo de loja
   const getStoreTypeText = () => {
+    // Determinar qual plataforma é baseado nos dados
+    const isCentauro = productData.platform === 'centauro' || 
+                       (productData.vendor && productData.vendor.toLowerCase().includes('centauro'));
+    const isNike = productData.platform === 'nike' || 
+                  (productData.vendor && productData.vendor.toLowerCase().includes('nike'));
+    const isNetshoes = productData.platform === 'netshoes' || 
+                      (productData.vendor && productData.vendor.toLowerCase().includes('netshoes'));
+    
+    // Caso seja alguma plataforma esportiva específica
+    if (isCentauro || isNike || isNetshoes) {
+      if (storeType === 'loja_oficial') {
+        const vendorName = isCentauro ? 'Centauro' : (isNike ? 'Nike' : 'Netshoes');
+        return `Loja oficial ${vendorName}`;
+      } else if (storeType === 'loja_validada') {
+        return 'Loja validada';
+      } else if (storeType === 'catalogo' && vendorName) {
+        return `⚠️ Vendedor: ${vendorName}`;
+      }
+    }
+    
+    // Caso contrário, usar a lógica padrão
     switch (storeType) {
       case 'amazon':
         return 'Vendido e entregue pela Amazon';
@@ -180,7 +201,8 @@ const MessagePreview = ({
     if (isAmazon) {
       priceText = `✅  Por *R$ ${finalPrice}*`;
     } else {
-      // Para outras lojas, verificar se há desconto real
+      // Para todas as outras lojas (Mercado Livre, Nike, Centauro, etc),
+      // SEMPRE mostrar o formato De/Por quando há um preço original
       if (processedOriginalPrice && hasRealDiscount(processedOriginalPrice, finalPrice)) {
         priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
       } else {
