@@ -15,6 +15,8 @@ function App() {
   const [vendorName, setVendorName] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
+  const [editableMessage, setEditableMessage] = useState('');
+  const [isMessageEdited, setIsMessageEdited] = useState(false);
   
   // Estado para a imagem personalizada
   const [customImage, setCustomImage] = useState('');
@@ -23,23 +25,51 @@ function App() {
   
   // Estados para controlar quais seções estão abertas
   const [infoSectionOpen, setInfoSectionOpen] = useState(true);
-  const [storeSectionOpen, setStoreSectionOpen] = useState(false);
+  const [storeSectionOpen, setStoreSectionOpen] = useState(true); // Agora inicia expandido
   const [imageSectionOpen, setImageSectionOpen] = useState(false);
   
   // Referência para rolar a tela até a seção de configurações quando dados forem carregados
   const configSectionRef = useRef(null);
   
   const handleProductDataReceived = (data) => {
+    // Arredondar preços para baixo (remover centavos)
+    if (data && data.currentPrice) {
+      data.currentPrice = roundPriceDown(data.currentPrice);
+    }
+    if (data && data.originalPrice) {
+      data.originalPrice = roundPriceDown(data.originalPrice);
+    }
+    
     setProductData(data);
     
     // Determinar store type inicial baseado nos dados
     if (data.vendor === 'Amazon') {
       setStoreType('amazon');
-    } else if (data.isOfficialStore) {
+    } else if (data.vendor === 'Mercado Livre' || data.vendor.toLowerCase().includes('mercado livre') || 
+               data.isOfficialStore || 
+               (data.platform && data.platform.includes('mercadolivre'))) {
+      // Mercado Livre agora inicia como OFICIAL por padrão
       setStoreType('loja_oficial');
     } else {
       setStoreType('loja_validada');
     }
+  };
+  
+  // Função para arredondar preço para baixo (remover centavos)
+  const roundPriceDown = (price) => {
+    if (!price) return price;
+    
+    // Se contém vírgula, pega apenas a parte antes da vírgula
+    if (price.includes(',')) {
+      return price.split(',')[0];
+    }
+    
+    // Se contém ponto, assume que é separador decimal
+    if (price.includes('.')) {
+      return price.split('.')[0];
+    }
+    
+    return price;
   };
   
   const toggleSection = (section) => {
@@ -114,6 +144,19 @@ function App() {
     setImageFile(null);
   };
   
+  // Handler para edição de mensagem
+  const handleMessageEdit = (e) => {
+    setEditableMessage(e.target.value);
+    setIsMessageEdited(true);
+  };
+  
+  // Resetar estado de edição quando novos dados são recebidos
+  const handleMessageGenerated = (message) => {
+    setFinalMessage(message);
+    setEditableMessage(message);
+    setIsMessageEdited(false);
+  };
+  
   // Função para renderizar um campo de texto com botão de limpar
   const renderInputWithClear = (value, setValue, placeholder, type = 'text') => {
     return (
@@ -140,7 +183,9 @@ function App() {
   
   // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
   const shareWhatsApp = async () => {
-    if (!finalMessage) {
+    const messageToShare = isMessageEdited ? editableMessage : finalMessage;
+    
+    if (!messageToShare) {
       setError('Nenhuma mensagem para compartilhar.');
       return;
     }
@@ -149,7 +194,7 @@ function App() {
     if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
       try {
         await navigator.share({
-          text: finalMessage,
+          text: messageToShare,
           files: [imageFile]
         });
         return; // Se compartilhou com sucesso, encerra a função
@@ -160,7 +205,7 @@ function App() {
     }
     
     // Fallback para o método tradicional (apenas texto)
-    const encodedMessage = encodeURIComponent(finalMessage);
+    const encodedMessage = encodeURIComponent(messageToShare);
     
     // Verificar se é dispositivo móvel
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
@@ -182,11 +227,36 @@ function App() {
     }
   };
   
+  // Copiar mensagem para o clipboard
+  const copyMessage = () => {
+    const messageToShare = isMessageEdited ? editableMessage : finalMessage;
+    
+    if (!messageToShare) {
+      setError('Nenhuma mensagem para copiar.');
+      return;
+    }
+    
+    navigator.clipboard.writeText(messageToShare)
+      .then(() => {
+        const copyButton = document.getElementById('copyButton');
+        if (copyButton) {
+          copyButton.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+          setTimeout(() => {
+            copyButton.innerHTML = '<i class="fas fa-copy"></i> Copiar Mensagem';
+          }, 3000);
+        }
+      })
+      .catch((err) => {
+        console.error('Erro ao copiar: ', err);
+        setError('Falha ao copiar para a área de transferência');
+      });
+  };
+  
   return (
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.1</span>
+        <span className="app-version">Versão 2.2</span>
       </header>
       
       <div className="main-card">
@@ -356,13 +426,28 @@ function App() {
               vendorName={vendorName}
               discountPercentage={discountPercentage}
               customImage={customImage}
-              setFinalMessage={setFinalMessage}
+              setFinalMessage={handleMessageGenerated}
             />
+            
+            {/* Editor de mensagem */}
+            <div className="message-editor-container">
+              <label className="form-label">
+                <i className="fas fa-edit"></i> Editar mensagem <span className="optional-tag">Opcional</span>
+              </label>
+              <textarea 
+                className="message-editor"
+                value={editableMessage}
+                onChange={handleMessageEdit}
+                rows={10}
+                placeholder="A mensagem gerada aparecerá aqui. Você pode editá-la conforme desejar."
+              ></textarea>
+            </div>
             
             <div className="actions-row">
               <button 
+                id="copyButton"
                 className="copy-btn"
-                onClick={() => navigator.clipboard.writeText(finalMessage)}
+                onClick={copyMessage}
               >
                 <i className="fas fa-copy"></i>
                 Copiar Mensagem

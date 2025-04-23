@@ -259,6 +259,34 @@ body {
   margin-top: 10px;
 }
 
+/* Nova classe para editor de mensagem */
+.message-editor-container {
+  width: 100%;
+  margin: 15px 0;
+}
+
+.message-editor {
+  width: 100%;
+  min-height: 150px;
+  padding: 12px 14px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: var(--transition);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.message-editor:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.2);
+}
+
 .checkbox-group {
   display: flex;
   align-items: center;

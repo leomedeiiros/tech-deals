@@ -7,20 +7,21 @@ const MessagePreview = ({
   storeType, 
   vendorName,
   discountPercentage,
+  customImage,
   setFinalMessage
 }) => {
-  // Função para formatar o preço
+  // Função para formatar o preço (agora arredonda para baixo)
   const formatPrice = (price) => {
     if (!price) return '';
     
-    // Verificar se o preço já está no formato correto
+    // Arredondar para baixo (remover centavos)
     if (price.includes(',')) {
-      return price.trim();
+      return price.split(',')[0].trim();
     }
     
-    // Converter para número se for uma string com ponto
-    if (typeof price === 'string' && price.includes('.')) {
-      return price.replace('.', ',').trim();
+    // Se o preço contém ponto, assume que é separador decimal
+    if (price.includes('.')) {
+      return price.split('.')[0].trim();
     }
     
     return price.trim();
@@ -33,8 +34,14 @@ const MessagePreview = ({
     }
     
     // Converter o preço para número
-    const priceStr = currentPrice.replace(',', '.');
-    const priceNum = parseFloat(priceStr);
+    let priceNum;
+    if (currentPrice.includes(',')) {
+      // Se o preço já está no formato brasileiro (ex: "159,99")
+      priceNum = parseFloat(currentPrice.replace('.', '').replace(',', '.'));
+    } else {
+      // Se o preço está com ponto decimal
+      priceNum = parseFloat(currentPrice);
+    }
     
     if (isNaN(priceNum)) {
       return currentPrice;
@@ -44,8 +51,8 @@ const MessagePreview = ({
     const discountRate = parseFloat(discountPercentage) / 100;
     const discountedPrice = priceNum * (1 - discountRate);
     
-    // Formatar de volta para string no formato brasileiro
-    return discountedPrice.toFixed(2).replace('.', ',');
+    // Arredondar para baixo (remover centavos)
+    return Math.floor(discountedPrice).toString();
   };
   
   // Função para tratar o nome do vendedor
@@ -73,9 +80,9 @@ const MessagePreview = ({
   const hasRealDiscount = (originalPrice, currentPrice) => {
     if (!originalPrice || !currentPrice) return false;
     
-    // Converter preços para números
-    const originalValue = parseFloat(originalPrice.replace(',', '.'));
-    const currentValue = parseFloat(currentPrice.replace(',', '.'));
+    // Converter preços para números (após remoção de centavos)
+    const originalValue = parseInt(formatPrice(originalPrice).replace(/\./g, ''));
+    const currentValue = parseInt(formatPrice(currentPrice).replace(/\./g, ''));
     
     // Verificar se o preço original é significativamente maior que o atual
     // (diferença mínima de 5% para considerar como desconto real)
@@ -115,14 +122,16 @@ const MessagePreview = ({
     let priceText = '';
     
     // Calcular preço com desconto se fornecido
-    const finalPrice = discountPercentage ? calculateDiscountedPrice(currentPrice) : currentPrice;
+    const processedCurrentPrice = formatPrice(currentPrice);
+    const finalPrice = discountPercentage ? calculateDiscountedPrice(processedCurrentPrice) : processedCurrentPrice;
     
     // Verificar se há um desconto real
-    if (originalPrice && hasRealDiscount(originalPrice, finalPrice)) {
-      priceText = `✅  ~De R$ ${formatPrice(originalPrice)}~ por *R$ ${formatPrice(finalPrice)}*`;
+    const processedOriginalPrice = formatPrice(originalPrice);
+    if (processedOriginalPrice && hasRealDiscount(processedOriginalPrice, finalPrice)) {
+      priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
     } else {
       // Caso não tenha desconto, mostrar apenas o preço atual
-      priceText = `✅  Por *R$ ${formatPrice(finalPrice)}*`;
+      priceText = `✅  Por *R$ ${finalPrice}*`;
     }
     
     let message = `➡️ *${name}*`;
@@ -153,9 +162,23 @@ const MessagePreview = ({
     }
   }, [productData, couponCode, storeType, vendorName, discountPercentage]);
   
+  // Determinar a imagem a ser exibida (personalizada ou do produto)
+  const imageToShow = customImage ? customImage : (productData && productData.imageUrl ? productData.imageUrl : '');
+  
   return (
-    <div className="message-preview">
-      {productData ? generateMessage() : 'Preencha os dados acima para visualizar a mensagem.'}
+    <div className="message-preview-container">
+      {imageToShow && (
+        <div className="preview-image-container">
+          <img 
+            src={imageToShow} 
+            alt={productData ? productData.name : 'Imagem da promoção'} 
+            className="preview-image"
+          />
+        </div>
+      )}
+      <div className="message-preview">
+        {productData ? generateMessage() : 'Preencha os dados acima para visualizar a mensagem.'}
+      </div>
     </div>
   );
 };
