@@ -16,6 +16,7 @@ function App() {
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [includeImage, setIncludeImage] = useState(true); // Novo estado para controlar inclusão da imagem
   
   // Estados para controlar quais seções estão abertas
   const [infoSectionOpen, setInfoSectionOpen] = useState(true);
@@ -245,6 +246,20 @@ function App() {
                   </div>
                 )}
               </div>
+              
+              {/* Nova opção para incluir imagem na mensagem */}
+              <div className="checkbox-group" style={{ marginTop: '15px' }}>
+                <input
+                  type="checkbox"
+                  id="include-image"
+                  className="checkbox-input"
+                  checked={includeImage}
+                  onChange={() => setIncludeImage(!includeImage)}
+                />
+                <label htmlFor="include-image" className="checkbox-label">
+                  Incluir link da imagem na mensagem
+                </label>
+              </div>
             </div>
           </div>
         )}
@@ -275,6 +290,7 @@ function App() {
               vendorName={vendorName}
               discountPercentage={discountPercentage}
               customImage={customImage}
+              includeImage={includeImage}
               setFinalMessage={setFinalMessage}
             />
             
