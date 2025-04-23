@@ -1,9 +1,10 @@
 // frontend/src/App.js
 import React, { useState, useRef } from 'react';
-import LinkForm from './components/LinkForm';
-import MessagePreview from './components/MessagePreview';
 import axios from 'axios';
 import './App.css';
+import LinkForm from './components/LinkForm';
+import MessagePreview from './components/MessagePreview';
+import { API_BASE_URL } from './config';
 
 function App() {
   const [productData, setProductData] = useState(null);
@@ -16,7 +17,7 @@ function App() {
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [includeImage, setIncludeImage] = useState(true); // Novo estado para controlar inclusão da imagem
+  const [includeImage, setIncludeImage] = useState(true); // Estado para controlar inclusão da imagem
   
   // Estados para controlar quais seções estão abertas
   const [infoSectionOpen, setInfoSectionOpen] = useState(true);
@@ -79,7 +80,8 @@ function App() {
       setUploadingImage(true);
       setError('');
       
-      const response = await axios.post('http://localhost:3001/api/upload-image', formData, {
+      // URL correta do backend no Render
+      const response = await axios.post(`${API_BASE_URL}/api/upload-image`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -247,7 +249,7 @@ function App() {
                 )}
               </div>
               
-              {/* Nova opção para incluir imagem na mensagem */}
+              {/* Opção para incluir imagem na mensagem */}
               <div className="checkbox-group" style={{ marginTop: '15px' }}>
                 <input
                   type="checkbox"

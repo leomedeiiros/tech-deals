@@ -1,6 +1,7 @@
 // frontend/src/components/LinkForm.js
 import React, { useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
   const [url, setUrl] = useState('');
@@ -16,7 +17,7 @@ const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
       setError('');
       
       // URL correta do backend no Render
-      const response = await axios.post('https://gerador-promocoes-backend.onrender.com/api/scrape', { url });
+      const response = await axios.post(`${API_BASE_URL}/api/scrape`, { url });
       onProductDataReceived(response.data);
     } catch (error) {
       console.error('Erro ao obter dados do produto:', error);
