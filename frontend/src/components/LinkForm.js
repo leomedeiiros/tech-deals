@@ -32,13 +32,24 @@ const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
   
   return (
     <>
-      <input
-        type="url"
-        className="form-input"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="Cole o link da Amazon ou Mercado Livre"
-      />
+      <div className="input-clear-wrapper">
+        <input
+          type="url"
+          className="form-input"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Cole o link da Amazon ou Mercado Livre"
+        />
+        {url && (
+          <button 
+            className="clear-input-btn" 
+            onClick={() => setUrl('')}
+            type="button"
+          >
+            <i className="fas fa-times"></i>
+          </button>
+        )}
+      </div>
       <button
         className="btn extract-btn"
         onClick={handleExtract}

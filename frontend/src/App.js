@@ -49,6 +49,30 @@ function App() {
     }
   };
   
+  // Função para renderizar um campo de texto com botão de limpar
+  const renderInputWithClear = (value, setValue, placeholder, type = 'text') => {
+    return (
+      <div className="input-clear-wrapper">
+        <input 
+          type={type}
+          className="form-input"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+        />
+        {value && (
+          <button 
+            className="clear-input-btn" 
+            onClick={() => setValue('')}
+            type="button"
+          >
+            <i className="fas fa-times"></i>
+          </button>
+        )}
+      </div>
+    );
+  };
+  
   return (
     <div className="container">
       <header className="app-header">
@@ -75,7 +99,6 @@ function App() {
           <div className="section-content">
             <div className="form-group">
               <label className="form-label">Link da promoção</label>
-              {/* Apenas um campo de entrada para o link */}
               <LinkForm 
                 onProductDataReceived={handleProductDataReceived}
                 setLoading={setLoading}
@@ -87,28 +110,14 @@ function App() {
             
             <div className="form-group">
               <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
-              <input 
-                type="text"
-                className="form-input"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                placeholder="Insira um cupom de desconto"
-              />
+              {renderInputWithClear(couponCode, setCouponCode, "Insira um cupom de desconto")}
             </div>
             
             <div className="form-group">
               <label className="form-label">
                 <i className="fas fa-percent"></i> Porcentagem de Desconto Manual <span className="optional-tag">Opcional</span>
               </label>
-              <input 
-                type="number"
-                className="form-input"
-                min="0"
-                max="100"
-                value={discountPercentage}
-                onChange={(e) => setDiscountPercentage(e.target.value)}
-                placeholder="Ex: 20 (sem o símbolo %)"
-              />
+              {renderInputWithClear(discountPercentage, setDiscountPercentage, "Ex: 20 (sem o símbolo %)", "number")}
             </div>
           </div>
         )}
@@ -160,13 +169,7 @@ function App() {
             {storeType === 'catalogo' && (
               <div className="form-group" style={{ marginTop: '10px' }}>
                 <label className="form-label">Nome do Vendedor:</label>
-                <input 
-                  type="text"
-                  className="form-input"
-                  value={vendorName}
-                  onChange={(e) => setVendorName(e.target.value)}
-                  placeholder="Insira o nome do vendedor"
-                />
+                {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
               </div>
             )}
           </div>
