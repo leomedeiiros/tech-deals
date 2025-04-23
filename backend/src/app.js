@@ -15,6 +15,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Para processar formulários
 
 // Servir arquivos estáticos da pasta uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -25,6 +26,15 @@ app.use('/api', apiRoutes);
 // Rota raiz para verificar se o servidor está funcionando
 app.get('/', (req, res) => {
   res.send('API GeraPromo está funcionando!');
+});
+
+// Handler de erros global
+app.use((err, req, res, next) => {
+  console.error('Erro global:', err);
+  res.status(500).json({ 
+    error: 'Ocorreu um erro no servidor', 
+    details: err.message 
+  });
 });
 
 app.listen(PORT, () => {

@@ -48,20 +48,24 @@ router.post('/send-whatsapp', scrapeController.sendWhatsApp);
 
 // Rota para upload de imagem
 router.post('/upload-image', upload.single('image'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'Nenhuma imagem foi enviada' });
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhuma imagem foi enviada' });
+    }
+    
+    // Criar URL da imagem
+    const baseUrl = req.protocol + '://' + req.get('host');
+    const imageUrl = baseUrl + '/uploads/' + req.file.filename;
+    
+    res.json({ 
+      success: true, 
+      imageUrl: imageUrl,
+      message: 'Imagem carregada com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro no upload de imagem:', error);
+    res.status(500).json({ error: 'Falha ao processar upload de imagem', details: error.message });
   }
-  
-  // Criar URL da imagem
-  const host = req.get('host');
-  const protocol = req.protocol;
-  const imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
-  
-  res.json({ 
-    success: true, 
-    imageUrl: imageUrl,
-    message: 'Imagem carregada com sucesso'
-  });
 });
 
 module.exports = router;
