@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
-const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
+const LinkForm = ({ onProductDataReceived, setLoading, setError, setCouponCode, recentLinks = [] }) => {
   const [url, setUrl] = useState('');
   
   const handleExtract = async () => {
@@ -18,7 +18,9 @@ const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
       
       // URL correta do backend no Render
       const response = await axios.post(`${API_BASE_URL}/api/scrape`, { url });
-      onProductDataReceived(response.data);
+      
+      // Passar os dados do produto e a URL usada para o App.js
+      onProductDataReceived(response.data, url);
     } catch (error) {
       console.error('Erro ao obter dados do produto:', error);
       setError(
@@ -39,7 +41,15 @@ const LinkForm = ({ onProductDataReceived, setLoading, setError }) => {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Cole o link da Amazon ou Mercado Livre"
+          list="url-history"
         />
+        {recentLinks && recentLinks.length > 0 && (
+          <datalist id="url-history">
+            {recentLinks.map((link, index) => (
+              <option key={index} value={link} />
+            ))}
+          </datalist>
+        )}
         {url && (
           <button 
             className="clear-input-btn" 

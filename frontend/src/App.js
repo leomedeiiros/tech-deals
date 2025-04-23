@@ -1,5 +1,5 @@
 // frontend/src/App.js
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 import LinkForm from './components/LinkForm';
@@ -7,6 +7,31 @@ import MessagePreview from './components/MessagePreview';
 import { API_BASE_URL } from './config';
 
 function App() {
+  // Carregar dados salvos do localStorage
+  const loadFromLocalStorage = (key, defaultValue) => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+      console.warn(`Erro ao carregar ${key} do localStorage:`, error);
+      return defaultValue;
+    }
+  };
+
+  // Função para salvar no localStorage
+  const saveToLocalStorage = (key, value) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn(`Erro ao salvar ${key} no localStorage:`, error);
+    }
+  };
+
+  // Histórico de links usados
+  const [recentLinks, setRecentLinks] = useState(loadFromLocalStorage('recentLinks', []));
+  const [recentCoupons, setRecentCoupons] = useState(loadFromLocalStorage('recentCoupons', []));
+  const [recentDiscounts, setRecentDiscounts] = useState(loadFromLocalStorage('recentDiscounts', []));
+
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,8 +54,40 @@ function App() {
   
   // Referência para a prévia da mensagem editável
   const messagePreviewRef = useRef(null);
+
+  // Salvar histórico quando valores mudam
+  useEffect(() => {
+    saveToLocalStorage('recentLinks', recentLinks);
+  }, [recentLinks]);
+
+  useEffect(() => {
+    saveToLocalStorage('recentCoupons', recentCoupons);
+  }, [recentCoupons]);
+
+  useEffect(() => {
+    saveToLocalStorage('recentDiscounts', recentDiscounts);
+  }, [recentDiscounts]);
   
-  const handleProductDataReceived = (data) => {
+  // Função para adicionar ao histórico sem duplicar
+  const addToHistory = (value, setter, currentArray, maxItems = 10) => {
+    if (!value || value.trim() === '') return;
+    
+    // Remover duplicata se existir
+    const newArray = currentArray.filter(item => item !== value);
+    
+    // Adicionar novo valor no início
+    newArray.unshift(value);
+    
+    // Limitar tamanho
+    if (newArray.length > maxItems) {
+      newArray.pop();
+    }
+    
+    // Atualizar estado
+    setter(newArray);
+  };
+
+  const handleProductDataReceived = (data, url) => {
     // Arredondar preços para baixo (remover centavos)
     if (data && data.currentPrice) {
       data.currentPrice = roundPriceDown(data.currentPrice);
@@ -41,13 +98,24 @@ function App() {
     
     setProductData(data);
     
-    // Determinar store type inicial baseado nos dados
+    // Adicionar URL ao histórico 
+    if (url) {
+      addToHistory(url, setRecentLinks, recentLinks);
+    }
+    
+    // Verificar se o link é do Mercado Livre para definir corretamente o tipo de loja
+    const isMercadoLivre = 
+      (url && (url.includes('mercadolivre') || url.includes('mercadolibre'))) ||
+      (data.vendor && data.vendor.toLowerCase().includes('mercado livre')) ||
+      (data.platform && typeof data.platform === 'string' && 
+      (data.platform.toLowerCase().includes('mercadolivre') || 
+       data.platform.toLowerCase().includes('mercadolibre')));
+      
+    // DEFINIR TIPO DE LOJA PADRÃO
     if (data.vendor === 'Amazon') {
       setStoreType('amazon');
-    } else if (data.vendor === 'Mercado Livre' || data.vendor.toLowerCase().includes('mercado livre') || 
-               data.isOfficialStore || 
-               (data.platform && data.platform.includes('mercadolivre'))) {
-      // Mercado Livre agora inicia como OFICIAL por padrão
+    } else if (isMercadoLivre) {
+      // Para o Mercado Livre, definir SEMPRE como "loja_oficial" por padrão
       setStoreType('loja_oficial');
     } else {
       setStoreType('loja_validada');
@@ -87,6 +155,22 @@ function App() {
         break;
       default:
         break;
+    }
+  };
+  
+  // Handler para cupom de desconto
+  const handleCouponChange = (value) => {
+    setCouponCode(value);
+    if (value) {
+      addToHistory(value, setRecentCoupons, recentCoupons);
+    }
+  };
+  
+  // Handler para porcentagem de desconto
+  const handleDiscountChange = (value) => {
+    setDiscountPercentage(value);
+    if (value) {
+      addToHistory(value, setRecentDiscounts, recentDiscounts);
     }
   };
   
@@ -165,8 +249,8 @@ function App() {
     }
   };
   
-  // Função para renderizar um campo de texto com botão de limpar
-  const renderInputWithClear = (value, setValue, placeholder, type = 'text') => {
+  // Função para renderizar um campo de texto com botão de limpar e datalist
+  const renderInputWithClear = (value, setValue, placeholder, type = 'text', listId = null, historyItems = []) => {
     return (
       <div className="input-clear-wrapper">
         <input 
@@ -175,7 +259,15 @@ function App() {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
+          list={listId}
         />
+        {listId && historyItems.length > 0 && (
+          <datalist id={listId}>
+            {historyItems.map((item, index) => (
+              <option key={index} value={item} />
+            ))}
+          </datalist>
+        )}
         {value && (
           <button 
             className="clear-input-btn" 
@@ -276,7 +368,7 @@ function App() {
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.2</span>
+        <span className="app-version">Versão 2.3</span>
       </header>
       
       <div className="main-card">
@@ -303,20 +395,35 @@ function App() {
                 setLoading={setLoading}
                 setError={setError}
                 setCouponCode={setCouponCode}
+                recentLinks={recentLinks}
               />
               {error && <div className="error-message">{error}</div>}
             </div>
             
             <div className="form-group">
               <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
-              {renderInputWithClear(couponCode, setCouponCode, "Insira um cupom de desconto")}
+              {renderInputWithClear(
+                couponCode, 
+                handleCouponChange, 
+                "Insira um cupom de desconto", 
+                "text", 
+                "coupon-history", 
+                recentCoupons
+              )}
             </div>
             
             <div className="form-group">
               <label className="form-label">
                 <i className="fas fa-percent"></i> Porcentagem de Desconto Manual <span className="optional-tag">Opcional</span>
               </label>
-              {renderInputWithClear(discountPercentage, setDiscountPercentage, "Ex: 20 (sem o símbolo %)", "number")}
+              {renderInputWithClear(
+                discountPercentage, 
+                handleDiscountChange, 
+                "Ex: 20 (sem o símbolo %)", 
+                "number", 
+                "discount-history", 
+                recentDiscounts
+              )}
             </div>
           </div>
         )}
