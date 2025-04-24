@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
-import LinkForm from './components/LinkForm';
 import MessagePreview from './components/MessagePreview';
 import { API_BASE_URL } from './config';
 
@@ -33,6 +32,7 @@ function App() {
   const [recentDiscounts, setRecentDiscounts] = useState(loadFromLocalStorage('recentDiscounts', []));
   const [recentDiscountValues, setRecentDiscountValues] = useState(loadFromLocalStorage('recentDiscountValues', []));
 
+  const [url, setUrl] = useState('');
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -91,6 +91,32 @@ function App() {
     
     // Atualizar estado
     setter(newArray);
+  };
+
+  const handleExtract = async () => {
+    if (!url) {
+      setError('Por favor, insira um link de afiliado.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      // URL correta do backend no Render
+      const response = await axios.post(`${API_BASE_URL}/api/scrape`, { url });
+      
+      // Passar os dados do produto e a URL usada
+      handleProductDataReceived(response.data, url);
+    } catch (error) {
+      console.error('Erro ao obter dados do produto:', error);
+      setError(
+        error.response?.data?.error ||
+        'Falha ao obter dados do produto. Verifique o link e tente novamente.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleProductDataReceived = (data, url) => {
@@ -413,7 +439,7 @@ function App() {
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.0</span>
+        <span className="app-version">Versão 2.4</span>
       </header>
       
       <div className="main-card">
@@ -435,14 +461,32 @@ function App() {
           <div className="section-content">
             <div className="form-group">
               <label className="form-label">Link da promoção</label>
-              <LinkForm 
-                onProductDataReceived={handleProductDataReceived}
-                setLoading={setLoading}
-                setError={setError}
-                setCouponCode={setCouponCode}
-                recentLinks={recentLinks}
-              />
-              {error && <div className="error-message">{error}</div>}
+              <div className="input-clear-wrapper">
+                <input
+                  type="url"
+                  className="form-input"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="Cole o link da Amazon ou Mercado Livre"
+                  list="url-history"
+                />
+                {recentLinks && recentLinks.length > 0 && (
+                  <datalist id="url-history">
+                    {recentLinks.map((link, index) => (
+                      <option key={index} value={link} />
+                    ))}
+                  </datalist>
+                )}
+                {url && (
+                  <button 
+                    className="clear-input-btn" 
+                    onClick={() => setUrl('')}
+                    type="button"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className="form-group">
@@ -601,6 +645,19 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Botão Extrair Dados - Agora no final da página */}
+        <div className="section-content">
+          <button
+            className="btn extract-btn"
+            onClick={handleExtract}
+            style={{ width: '100%' }}
+          >
+            <i className="fas fa-search"></i>
+            Extrair Dados
+          </button>
+          {error && <div className="error-message">{error}</div>}
+        </div>
         
         {loading ? (
           <div className="section-content" style={{ textAlign: 'center' }}>

@@ -60,13 +60,7 @@ const LinkForm = ({ onProductDataReceived, setLoading, setError, setCouponCode, 
           </button>
         )}
       </div>
-      <button
-        className="btn extract-btn"
-        onClick={handleExtract}
-      >
-        <i className="fas fa-search"></i>
-        Extrair Dados
-      </button>
+      {/* O botão de extração foi removido daqui e movido para o App.js */}
     </>
   );
 };

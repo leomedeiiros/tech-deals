@@ -280,6 +280,7 @@ body {
 
 .extract-btn {
   margin-top: 10px;
+  width: 100%; /* Fazer o botão ocupar toda a largura */
 }
 
 .store-type-group {
