@@ -33,6 +33,7 @@ function App() {
   const [recentDiscounts, setRecentDiscounts] = useState(loadFromLocalStorage('recentDiscounts', []));
   const [recentDiscountValues, setRecentDiscountValues] = useState(loadFromLocalStorage('recentDiscountValues', []));
 
+  const [url, setUrl] = useState('');
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -43,6 +44,7 @@ function App() {
   const [discountValue, setDiscountValue] = useState(''); // Novo estado para desconto em R$
   const [finalMessage, setFinalMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   
   // Estado para a imagem personalizada
   const [customImage, setCustomImage] = useState('');
@@ -56,6 +58,7 @@ function App() {
   
   // Referência para a prévia da mensagem editável
   const messagePreviewRef = useRef(null);
+  const mainCardRef = useRef(null);
 
   // Salvar histórico quando valores mudam
   useEffect(() => {
@@ -156,6 +159,16 @@ function App() {
     
     // Resetar edição quando novos dados são carregados
     setIsEditing(false);
+
+    // Rolar para a seção de preview após o carregamento
+    setTimeout(() => {
+      if (mainCardRef.current) {
+        const previewSection = mainCardRef.current.querySelector('.preview-section');
+        if (previewSection) {
+          previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }, 300);
   };
   
   // Função para arredondar preço para baixo (remover centavos)
@@ -395,28 +408,54 @@ function App() {
     
     navigator.clipboard.writeText(messageToShare)
       .then(() => {
-        const copyButton = document.getElementById('copyButton');
-        if (copyButton) {
-          copyButton.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-          setTimeout(() => {
-            copyButton.innerHTML = '<i class="fas fa-copy"></i> Copiar Mensagem';
-          }, 3000);
-        }
+        setCopySuccess(true);
+        setTimeout(() => {
+          setCopySuccess(false);
+        }, 3000);
       })
       .catch((err) => {
         console.error('Erro ao copiar: ', err);
         setError('Falha ao copiar para a área de transferência');
       });
   };
+
+  // Função para extrair dados do produto
+  const handleExtract = async () => {
+    if (!document.querySelector('input[type="url"]').value) {
+      setError('Por favor, insira um link de afiliado.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      // URL correta do backend no Render
+      const response = await axios.post(`${API_BASE_URL}/api/scrape`, { 
+        url: document.querySelector('input[type="url"]').value 
+      });
+      
+      // Passar os dados do produto e a URL usada para processamento
+      handleProductDataReceived(response.data, document.querySelector('input[type="url"]').value);
+    } catch (error) {
+      console.error('Erro ao obter dados do produto:', error);
+      setError(
+        error.response?.data?.error ||
+        'Falha ao obter dados do produto. Verifique o link e tente novamente.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
   
   return (
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.0</span>
+        <span className="app-version">Versão 2.5</span>
       </header>
       
-      <div className="main-card">
+      <div className="main-card" ref={mainCardRef}>
         <div className="card-header">
           <h2 className="card-title">Gerador de Mensagens Promocionais</h2>
           <p className="card-subtitle">Crie mensagens atrativas para compartilhar promoções no WhatsApp</p>
@@ -431,69 +470,85 @@ function App() {
           <i className={`fas fa-chevron-down chevron-icon ${infoSectionOpen ? 'open' : ''}`}></i>
         </div>
         
-        {infoSectionOpen && (
-          <div className="section-content">
-            <div className="form-group">
-              <label className="form-label">Link da promoção</label>
-              <LinkForm 
-                onProductDataReceived={handleProductDataReceived}
-                setLoading={setLoading}
-                setError={setError}
-                setCouponCode={setCouponCode}
-                recentLinks={recentLinks}
+        <div className={`section-content ${infoSectionOpen ? 'open' : ''}`}>
+          <div className="form-group">
+            <label className="form-label">Link da promoção</label>
+            <div className="input-clear-wrapper">
+              <input
+                type="url"
+                className="form-input"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="Cole o link da Amazon ou Mercado Livre"
+                list="url-history"
               />
-              {error && <div className="error-message">{error}</div>}
+              {recentLinks && recentLinks.length > 0 && (
+                <datalist id="url-history">
+                  {recentLinks.map((link, index) => (
+                    <option key={index} value={link} />
+                  ))}
+                </datalist>
+              )}
+              {url && (
+                <button 
+                  className="clear-input-btn" 
+                  onClick={() => setUrl('')}
+                  type="button"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              )}
             </div>
-            
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
+            {renderInputWithClear(
+              couponCode, 
+              handleCouponChange, 
+              "Insira um cupom de desconto", 
+              "text", 
+              "coupon-history", 
+              recentCoupons
+            )}
+          </div>
+          
+          <div className="discount-fields-grid">
             <div className="form-group">
-              <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
+              <label className="form-label">
+                <i className="fas fa-percent"></i> Desconto % <span className="optional-tag">Opcional</span>
+              </label>
               {renderInputWithClear(
-                couponCode, 
-                handleCouponChange, 
-                "Insira um cupom de desconto", 
-                "text", 
-                "coupon-history", 
-                recentCoupons
+                discountPercentage, 
+                handleDiscountChange, 
+                "Ex: 20 (sem o símbolo %)", 
+                "number", 
+                "discount-history", 
+                recentDiscounts
               )}
             </div>
             
-            <div className="discount-fields-grid">
-              <div className="form-group">
-                <label className="form-label">
-                  <i className="fas fa-percent"></i> Desconto % <span className="optional-tag">Opcional</span>
-                </label>
-                {renderInputWithClear(
-                  discountPercentage, 
-                  handleDiscountChange, 
-                  "Ex: 20 (sem o símbolo %)", 
-                  "number", 
-                  "discount-history", 
-                  recentDiscounts
-                )}
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">
-                  <i className="fas fa-dollar-sign"></i> Desconto em R$ <span className="optional-tag">Opcional</span>
-                </label>
-                {renderInputWithClear(
-                  discountValue, 
-                  handleDiscountValueChange, 
-                  "Ex: 50", 
-                  "number", 
-                  "discount-value-history", 
-                  recentDiscountValues
-                )}
-              </div>
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-dollar-sign"></i> Desconto em R$ <span className="optional-tag">Opcional</span>
+              </label>
+              {renderInputWithClear(
+                discountValue, 
+                handleDiscountValueChange, 
+                "Ex: 50", 
+                "number", 
+                "discount-value-history", 
+                recentDiscountValues
+              )}
             </div>
-            
-            {(discountPercentage && discountValue) && (
-              <div className="discount-warning">
-                <i className="fas fa-exclamation-triangle"></i> Atenção: Use apenas um tipo de desconto por vez.
-              </div>
-            )}
           </div>
-        )}
+          
+          {(discountPercentage && discountValue) && (
+            <div className="discount-warning">
+              <i className="fas fa-exclamation-triangle"></i> Atenção: Use apenas um tipo de desconto por vez.
+            </div>
+          )}
+        </div>
         
         {/* Seção de Tipo de Loja */}
         <div className="section-header" onClick={() => toggleSection('store')}>
@@ -504,49 +559,47 @@ function App() {
           <i className={`fas fa-chevron-down chevron-icon ${storeSectionOpen ? 'open' : ''}`}></i>
         </div>
         
-        {storeSectionOpen && (
-          <div className="section-content">
-            <div className="store-type-group">
-              <button 
-                className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
-                onClick={() => setStoreType('amazon')}
-              >
-                <i className="fab fa-amazon"></i> Amazon
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
-                onClick={() => setStoreType('loja_oficial')}
-              >
-                <i className="fas fa-check-circle"></i> Loja Oficial
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
-                onClick={() => setStoreType('catalogo')}
-              >
-                <i className="fas fa-list"></i> Catálogo
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
-                onClick={() => setStoreType('loja_validada')}
-              >
-                <i className="fas fa-shield-alt"></i> Loja validada
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
-                onClick={() => setStoreType('')}
-              >
-                <i className="fas fa-times"></i> Nenhum
-              </button>
-            </div>
-            
-            {storeType === 'catalogo' && (
-              <div className="form-group" style={{ marginTop: '10px' }}>
-                <label className="form-label">Nome do Vendedor:</label>
-                {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
-              </div>
-            )}
+        <div className={`section-content ${storeSectionOpen ? 'open' : ''}`}>
+          <div className="store-type-group">
+            <button 
+              className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
+              onClick={() => setStoreType('amazon')}
+            >
+              <i className="fab fa-amazon"></i> Amazon
+            </button>
+            <button 
+              className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
+              onClick={() => setStoreType('loja_oficial')}
+            >
+              <i className="fas fa-check-circle"></i> Loja Oficial
+            </button>
+            <button 
+              className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
+              onClick={() => setStoreType('catalogo')}
+            >
+              <i className="fas fa-list"></i> Catálogo
+            </button>
+            <button 
+              className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
+              onClick={() => setStoreType('loja_validada')}
+            >
+              <i className="fas fa-shield-alt"></i> Loja validada
+            </button>
+            <button 
+              className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
+              onClick={() => setStoreType('')}
+            >
+              <i className="fas fa-times"></i> Nenhum
+            </button>
           </div>
-        )}
+          
+          {storeType === 'catalogo' && (
+            <div className="form-group" style={{ marginTop: '10px' }}>
+              <label className="form-label">Nome do Vendedor:</label>
+              {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
+            </div>
+          )}
+        </div>
         
         {/* Nova Seção: Imagem Personalizada */}
         <div className="section-header" onClick={() => toggleSection('image')}>
@@ -558,49 +611,82 @@ function App() {
           <i className={`fas fa-chevron-down chevron-icon ${imageSectionOpen ? 'open' : ''}`}></i>
         </div>
         
-        {imageSectionOpen && (
-          <div className="section-content">
-            <div className="form-group">
-              <label className="form-label">Upload de imagem</label>
-              <p className="form-description">
-                Carregue uma imagem personalizada para sua promoção. 
-                Se não for fornecida, será usada a imagem do produto.
+        <div className={`section-content ${imageSectionOpen ? 'open' : ''}`}>
+          <div className="form-group">
+            <label className="form-label">Upload de imagem</label>
+            <p className="form-description">
+              Carregue uma imagem personalizada para sua promoção. 
+              Se não for fornecida, será usada a imagem do produto.
+            </p>
+            <div className="web-share-info">
+              <p className="web-share-info-text">
+                <i className="fas fa-info-circle"></i> Em dispositivos móveis compatíveis, a imagem será anexada junto com a mensagem.
               </p>
-              <div className="web-share-info">
-                <p className="web-share-info-text">
-                  <i className="fas fa-info-circle"></i> Em dispositivos móveis compatíveis, a imagem será anexada junto com a mensagem.
-                </p>
-              </div>
-              
-              <div className="file-upload-container">
-                <input 
-                  type="file" 
-                  accept="image/jpeg,image/png,image/gif,image/jpg" 
-                  onChange={handleImageUpload}
-                  id="image-upload"
-                  className="file-input"
-                  disabled={uploadingImage}
-                />
-              </div>
-              
-              {uploadingImage && (
-                <div className="upload-status">
-                  <div className="loading"></div>
-                  <span>Enviando imagem...</span>
-                </div>
-              )}
-              
-              {customImage && (
-                <div className="custom-image-preview">
-                  <img src={customImage} alt="Imagem personalizada" className="uploaded-image" />
-                  <button onClick={removeCustomImage} className="btn-sm btn-danger">
-                    <i className="fas fa-trash-alt"></i> Remover
-                  </button>
-                </div>
-              )}
             </div>
+            
+            <div className="file-upload-container">
+              <input 
+                type="file" 
+                accept="image/jpeg,image/png,image/gif,image/jpg" 
+                onChange={handleImageUpload}
+                id="image-upload"
+                className="file-input"
+                disabled={uploadingImage}
+              />
+            </div>
+            
+            {uploadingImage && (
+              <div className="upload-status">
+                <div className="loading"></div>
+                <span>Enviando imagem...</span>
+              </div>
+            )}
+            
+            {customImage && (
+              <div className="custom-image-preview">
+                <img src={customImage} alt="Imagem personalizada" className="uploaded-image" />
+                <button onClick={removeCustomImage} className="btn-sm btn-danger">
+                  <i className="fas fa-trash-alt"></i> Remover
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Botão Extrair Dados - Com destaque especial para garantir visibilidade */}
+        <div style={{ 
+          padding: '24px', 
+          borderBottom: '1px solid var(--border-color)',
+          backgroundColor: 'rgba(88, 101, 242, 0.1)'
+        }}>
+          <button
+            className="btn extract-btn"
+            onClick={handleExtract}
+            style={{
+              background: 'linear-gradient(90deg, #5865f2, #3e4adf)',
+              padding: '18px',
+              fontSize: '1.15rem',
+              fontWeight: 'bold',
+              boxShadow: '0 6px 15px rgba(88, 101, 242, 0.5)',
+              position: 'relative',
+              overflow: 'hidden',
+              width: '100%',
+              border: 'none',
+              color: 'white',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}
+          >
+            <i className="fas fa-search"></i>
+            Extrair Dados
+          </button>
+          {error && <div className="error-message">{error}</div>}
+        </div>
         
         {loading ? (
           <div className="section-content" style={{ textAlign: 'center' }}>
@@ -611,7 +697,7 @@ function App() {
           </div>
         ) : productData ? (
           <div className="preview-section">
-            <p className="preview-label">Prévia da mensagem:</p>
+            <p className="preview-label">Prévia da mensagem</p>
             
             {/* Imagem da Prévia */}
             {(customImage || (productData && productData.imageUrl)) && (
@@ -652,11 +738,11 @@ function App() {
             <div className="actions-row">
               <button 
                 id="copyButton"
-                className="copy-btn"
+                className={`copy-btn ${copySuccess ? 'success-animation' : ''}`}
                 onClick={copyMessage}
               >
-                <i className="fas fa-copy"></i>
-                Copiar Mensagem
+                <i className={`${copySuccess ? 'fas fa-check' : 'fas fa-copy'}`}></i>
+                {copySuccess ? 'Copiado!' : 'Copiar Mensagem'}
               </button>
               
               <button 
@@ -669,6 +755,10 @@ function App() {
             </div>
           </div>
         ) : null}
+      </div>
+      
+      <div className="watermark">
+        GeraPromo &copy; 2025 - Todos os direitos reservados
       </div>
     </div>
   );
