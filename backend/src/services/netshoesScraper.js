@@ -202,8 +202,65 @@ exports.scrapeProductData = async (url) => {
     // Tirar screenshot para debug
     await page.screenshot({path: 'netshoes-produto.png'});
     
-    // Extrair dados do produto com seletores atualizados e mais robustos
-    let productData = await page.evaluate(() => {
+    // Extrair dados do produto com foco no formato "De X Por Y" da Netshoes
+    const productData = await page.evaluate(() => {
+      // Função especial para extrair preços no formato "De X Por Y" da Netshoes
+      const extractNetshoesDeParPrices = () => {
+        // Procurar elementos específicos da Netshoes para preços
+        const deElement = document.querySelector('.list-price, .price-box__list, .valor-de, [class*="original-price"]');
+        const porElement = document.querySelector('.default-price, .price-box__best, .valor-por, [class*="best-price"]');
+        
+        let dePrice = null;
+        let porPrice = null;
+        
+        // Extrair preço original
+        if (deElement) {
+          const deText = deElement.textContent.trim();
+          const deMatch = deText.match(/R\$\s*(\d+[\.,]\d+)/);
+          if (deMatch) {
+            dePrice = deMatch[1].replace('.', ',');
+          }
+        }
+        
+        // Extrair preço atual/promocional
+        if (porElement) {
+          const porText = porElement.textContent.trim();
+          const porMatch = porText.match(/R\$\s*(\d+[\.,]\d+)/);
+          if (porMatch) {
+            porPrice = porMatch[1].replace('.', ',');
+          }
+        }
+        
+        // Tentar extrair usando o formato explícito "De R$ X Por R$ Y"
+        if (!dePrice || !porPrice) {
+          const deParaRegex = /De\s*R\$\s*(\d+[\.,]\d+)[\s\S]*?Por\s*R\$\s*(\d+[\.,]\d+)/i;
+          const bodyText = document.body.innerText;
+          const deParaMatch = bodyText.match(deParaRegex);
+          
+          if (deParaMatch) {
+            if (!dePrice) dePrice = deParaMatch[1].replace('.', ',');
+            if (!porPrice) porPrice = deParaMatch[2].replace('.', ',');
+          }
+        }
+        
+        // Procurar por formato alternativo no HTML
+        if (!dePrice || !porPrice) {
+          // Buscar o container principal de preços na Netshoes
+          const priceContainer = document.querySelector('.product-price-box, .product-price, [class*="price-container"]');
+          if (priceContainer) {
+            const html = priceContainer.innerHTML;
+            // Extrair preços do HTML
+            const deMatch = html.match(/De\s*R\$\s*(\d+[\.,]\d+)/i);
+            const porMatch = html.match(/Por\s*R\$\s*(\d+[\.,]\d+)/i);
+            
+            if (deMatch && !dePrice) dePrice = deMatch[1].replace('.', ',');
+            if (porMatch && !porPrice) porPrice = porMatch[1].replace('.', ',');
+          }
+        }
+        
+        return { originalPrice: dePrice, currentPrice: porPrice };
+      };
+
       // Função para limpar texto de preço
       const cleanPrice = (price) => {
         if (!price) return '';
@@ -250,37 +307,49 @@ exports.scrapeProductData = async (url) => {
         }
       }
       
-      // Preço atual - verificar múltiplos seletores possíveis
-      let currentPrice = '';
-      const priceSelectors = [
-        '.default-price',
-        '.price__value',
-        '.product-price .price-box .regular-price .price',
-        '.product-price-box .product-price__best',
-        '.price-final',
-        '.product-price .value',
-        '.product-price strong',
-        '[data-testid*="price"]',
-        '[class*="currentPrice"]',
-        '[class*="finalPrice"]',
-        '[class*="bestPrice"]',
-        '.price .sale strong',
-        'span[class*="price"]',
-        'div[class*="price"]',
-        // Específicos Netshoes
-        '.product-price__best',
-        '.product-price__value',
-        '.price-box__best',
-        '.valor-por',
-        '.actual-price',
-        '.price-box__price'
-      ];
+      // NOVA IMPLEMENTAÇÃO: Extrair preços no formato De/Por da Netshoes
+      const dePorPrices = extractNetshoesDeParPrices();
+      let originalPrice = dePorPrices.originalPrice;
+      let currentPrice = dePorPrices.currentPrice;
       
-      for (const selector of priceSelectors) {
-        const element = document.querySelector(selector);
-        if (element && element.textContent.trim()) {
-          currentPrice = cleanPrice(element.textContent);
-          if (currentPrice) break;
+      if (dePorPrices.originalPrice && dePorPrices.currentPrice) {
+        console.log("Preços extraídos no formato De/Por:", dePorPrices);
+      }
+      
+      // Se não encontramos os preços com o método especializado, tentar métodos alternativos
+      
+      // Preço atual - verificar múltiplos seletores possíveis
+      if (!currentPrice) {
+        const priceSelectors = [
+          '.default-price',
+          '.price__value',
+          '.product-price .price-box .regular-price .price',
+          '.product-price-box .product-price__best',
+          '.price-final',
+          '.product-price .value',
+          '.product-price strong',
+          '[data-testid*="price"]',
+          '[class*="currentPrice"]',
+          '[class*="finalPrice"]',
+          '[class*="bestPrice"]',
+          '.price .sale strong',
+          'span[class*="price"]',
+          'div[class*="price"]',
+          // Específicos Netshoes
+          '.product-price__best',
+          '.product-price__value',
+          '.price-box__best',
+          '.valor-por',
+          '.actual-price',
+          '.price-box__price'
+        ];
+        
+        for (const selector of priceSelectors) {
+          const element = document.querySelector(selector);
+          if (element && element.textContent.trim()) {
+            currentPrice = cleanPrice(element.textContent);
+            if (currentPrice) break;
+          }
         }
       }
       
@@ -293,41 +362,34 @@ exports.scrapeProductData = async (url) => {
         }
       }
       
-      // Limpar o preço se ainda estiver concatenado
-      if (currentPrice && currentPrice.length > 10) {
-        const priceMatch = currentPrice.match(/(\d+,\d+)/);
-        if (priceMatch && priceMatch[1]) {
-          currentPrice = priceMatch[1];
-        }
-      }
-      
-      // Preço original (riscado)
-      let originalPrice = '';
-      const originalPriceSelectors = [
-        '.old-price',
-        '.price__old',
-        '.product-price .price-box .old-price .price',
-        '.product-price-box .product-price__old',
-        '.regular-price .strike',
-        '[data-testid*="original-price"]',
-        '[class*="oldPrice"]',
-        '[class*="listPrice"]',
-        '.price .regular',
-        'span[class*="list-price"]',
-        'span[class*="old"]',
-        // Específicos Netshoes
-        '.price-box__list',
-        '.list-price',
-        '.valor-de',
-        '.original-price',
-        '.list-price span'
-      ];
-      
-      for (const selector of originalPriceSelectors) {
-        const element = document.querySelector(selector);
-        if (element && element.textContent.trim()) {
-          originalPrice = cleanPrice(element.textContent);
-          if (originalPrice) break;
+      // Preço original (riscado) - se não encontrado no método De/Por
+      if (!originalPrice) {
+        const originalPriceSelectors = [
+          '.old-price',
+          '.price__old',
+          '.product-price .price-box .old-price .price',
+          '.product-price-box .product-price__old',
+          '.regular-price .strike',
+          '[data-testid*="original-price"]',
+          '[class*="oldPrice"]',
+          '[class*="listPrice"]',
+          '.price .regular',
+          'span[class*="list-price"]',
+          'span[class*="old"]',
+          // Específicos Netshoes
+          '.price-box__list',
+          '.list-price',
+          '.valor-de',
+          '.original-price',
+          '.list-price span'
+        ];
+        
+        for (const selector of originalPriceSelectors) {
+          const element = document.querySelector(selector);
+          if (element && element.textContent.trim()) {
+            originalPrice = cleanPrice(element.textContent);
+            if (originalPrice) break;
+          }
         }
       }
       
@@ -407,6 +469,15 @@ exports.scrapeProductData = async (url) => {
         }
       }
       
+      // Verificar se o preço atual contém informações de parcelamento e limpar
+      if (currentPrice && currentPrice.includes('x de')) {
+        const match = currentPrice.match(/(\d+)[xX]\s*de\s*R\$\s*(\d+[.,]\d+)/i);
+        if (match) {
+          // Ignorar o parcelamento, ficar apenas com o valor da parcela
+          currentPrice = match[2].replace('.', ',');
+        }
+      }
+      
       // Imagem do produto
       let productImage = '';
       const imageSelectors = [
@@ -431,114 +502,18 @@ exports.scrapeProductData = async (url) => {
         }
       }
       
-      // Tentar extrair informações de um script JSON
-      let scriptData = null;
-      try {
-        const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-        for (const script of scripts) {
-          try {
-            const jsonData = JSON.parse(script.textContent);
-            if (jsonData && (jsonData['@type'] === 'Product' || (jsonData.offers && jsonData.name))) {
-              scriptData = jsonData;
-              break;
-            }
-          } catch (e) {
-            // Ignorar erros de parsing
-          }
-        }
-      } catch (e) {
-        // Ignorar erros ao processar scripts JSON
-      }
-      
-      // Usar dados do script JSON se disponíveis
-      if (scriptData) {
-        if (!productTitle && scriptData.name) {
-          productTitle = scriptData.name;
-        }
+      // Verificar se o preço atual é menor que o original (como esperado)
+      if (originalPrice && currentPrice) {
+        const origValue = parseFloat(originalPrice.replace(',', '.'));
+        const currValue = parseFloat(currentPrice.replace(',', '.'));
         
-        if (!currentPrice && scriptData.offers && scriptData.offers.price) {
-          currentPrice = scriptData.offers.price.toString().replace('.', ',');
-        }
-        
-        if (!productImage && scriptData.image) {
-          productImage = Array.isArray(scriptData.image) ? scriptData.image[0] : scriptData.image;
-        }
-      }
-      
-      // Verificar se algum elemento tem o padrão "R$ X,XX" explicitamente
-      const rsElements = document.querySelectorAll('*');
-      for (const el of rsElements) {
-        const text = el.textContent.trim();
-        if (text.match(/^R\$\s*\d+[.,]\d+$/)) {
-          const price = extractPriceWithRS(text);
-          if (price) {
-            // Verificar se é original ou atual com base no contexto
-            if (el.closest('.price__old, .list-price, [class*="old"], .valor-de')) {
-              if (!originalPrice) originalPrice = price;
-            } else if (el.closest('.price__best, .default-price, [class*="best"], .valor-por')) {
-              if (!currentPrice) currentPrice = price;
-            } else if (!currentPrice) {
-              // Se não temos contexto claro, assumimos que é o preço atual
-              currentPrice = price;
-            }
+        if (origValue <= currValue) {
+          // Se não for, pode ser um erro. Inverter apenas se a diferença for substancial (> 5%)
+          if (currValue > origValue * 1.05) {
+            console.log("Invertendo preços porque original <= current");
+            [originalPrice, currentPrice] = [currentPrice, originalPrice];
           }
         }
-      }
-      
-      // Buscar todos os preços na página
-      const allPriceElements = document.querySelectorAll('*');
-      const priceTexts = [];
-      
-      for (const el of allPriceElements) {
-        if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
-          const text = el.textContent.trim();
-          if (text.includes('R$') || text.includes('r$')) {
-            priceTexts.push({ 
-              element: el, 
-              text: text, 
-              price: extractPriceWithRS(text),
-              isOriginal: el.closest('.old-price, .price-old, [class*="old"], [class*="original"], .de, [class*="de"], .list-price, .valor-de') !== null
-            });
-          }
-        }
-      }
-      
-      // Filtrar apenas os que tiverem preço extraído com sucesso
-      const validPrices = priceTexts
-        .filter(p => p.price)
-        .sort((a, b) => {
-          return parseFloat(a.price.replace(',', '.')) - parseFloat(b.price.replace(',', '.'));
-        });
-      
-      // Verificar se há preços a partir da classe "-OFF" (comum em Netshoes)
-      const offElement = document.querySelector('span[class*="-off"], [class*="discount"]');
-      if (offElement && currentPrice) {
-        const offText = offElement.textContent;
-        const percentMatch = offText.match(/(\d+)%/);
-        
-        if (percentMatch) {
-          const percent = parseInt(percentMatch[1]);
-          if (!isNaN(percent) && percent > 0) {
-            // Calcular o preço original a partir do desconto
-            const currValue = parseFloat(currentPrice.replace(',', '.'));
-            if (!isNaN(currValue)) {
-              const origValue = currValue / (1 - percent/100);
-              originalPrice = origValue.toFixed(2).replace('.', ',');
-            }
-          }
-        }
-      }
-      
-      // Verificar preço original e atual da página de produto específica Netshoes
-      const priceEl = document.querySelector('[data-testid="product-price-value"]');
-      const listPriceEl = document.querySelector('[data-testid="product-list-price"]');
-      
-      if (priceEl && !currentPrice) {
-        currentPrice = cleanPrice(priceEl.textContent);
-      }
-      
-      if (listPriceEl && !originalPrice) {
-        originalPrice = cleanPrice(listPriceEl.textContent);
       }
       
       return {
@@ -583,7 +558,7 @@ exports.scrapeProductData = async (url) => {
             // Verificar se é preço original baseado no contexto
             const parentEl = node.parentElement;
             const isOriginal = parentEl && (
-              parentEl.classList.toString().match(/old|original|de|list|strike|through/) ||
+              parentEl.classList.toString().match(/old|original|de|list|strike|through|before/) ||
               parentEl.textContent.toLowerCase().includes('de r$')
             );
             
@@ -734,158 +709,6 @@ exports.scrapeProductData = async (url) => {
     
     // Log para depuração
     console.log("Dados extraídos da Netshoes:", JSON.stringify(productData, null, 2));
-    
-    // Se ainda não conseguiu obter o preço, tentar uma abordagem alternativa
-    if (!productData.currentPrice || productData.currentPrice === 'Preço não disponível' || productData.currentPrice.length > 10) {
-      console.log("Preço não encontrado ou incorreto. Tentando método alternativo...");
-      
-      // Tentar API alternativa
-      if (productCode) {
-        try {
-          // Acessar a página do produto em formato mais simples
-          const productApiUrl = `https://www.netshoes.com.br/produto/${productCode}/detalhes`;
-          await page.goto(productApiUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-          await wait(3000);
-          
-          // Tentar extrair dados novamente com foco apenas nos preços
-          const alternativeData = await page.evaluate(() => {
-            const cleanPrice = (price) => {
-              if (!price) return '';
-              // Limpar preço e se for muito longo, pegar só o primeiro
-              if (price.length > 10) {
-                const matches = price.match(/(\d+,\d+)/);
-                if (matches && matches[1]) {
-                  return matches[1];
-                }
-              }
-              return price.replace(/[^\d,]/g, '').trim();
-            };
-            
-            // Procurar preço no conteúdo da página
-            const priceRegex = /R\$\s*(\d+[\.,]?\d*)/g;
-            const priceMatches = document.body.textContent.match(priceRegex);
-            
-            const productInfo = {};
-            
-            if (priceMatches && priceMatches.length > 0) {
-              // Limpar cada preço encontrado
-              const prices = priceMatches.map(price => cleanPrice(price));
-              
-              // Obter preços únicos (pode haver duplicatas)
-              const uniquePrices = [...new Set(prices)].filter(p => p);
-              
-              if (uniquePrices.length > 0) {
-                // Ordenar preços (do menor para o maior)
-                uniquePrices.sort((a, b) => {
-                  return parseFloat(a.replace(',', '.')) - parseFloat(b.replace(',', '.'));
-                });
-                
-                // O menor preço é provavelmente o atual, o maior o original
-                if (uniquePrices.length === 1) {
-                  productInfo.currentPrice = uniquePrices[0];
-                } else if (uniquePrices.length >= 2) {
-                  productInfo.currentPrice = uniquePrices[0];
-                  productInfo.originalPrice = uniquePrices[uniquePrices.length - 1];
-                }
-              }
-            }
-            
-            return productInfo;
-          });
-          
-          // Atualizar dados se houver informações novas
-          if (alternativeData.currentPrice && alternativeData.currentPrice !== 'Preço não disponível') {
-            productData.currentPrice = alternativeData.currentPrice;
-            console.log("Preço atualizado com método alternativo:", productData.currentPrice);
-          }
-          
-          if (alternativeData.originalPrice) {
-            productData.originalPrice = alternativeData.originalPrice;
-          }
-        } catch (apiError) {
-          console.log("Erro ao tentar método alternativo:", apiError.message);
-        }
-      }
-      
-      // Segunda tentativa usando outra estratégia
-      if ((!productData.currentPrice || productData.currentPrice === 'Preço não disponível' || productData.currentPrice.length > 10)) {
-        try {
-          // Extrair apenas textos de preço da página
-          const rawPrices = await page.evaluate(() => {
-            const priceTexts = [];
-            // Selecionar todos os elementos com texto que pode conter preço
-            const elements = document.querySelectorAll('*');
-            for (const el of elements) {
-              if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
-                const text = el.textContent.trim();
-                if (text.includes('R$') && text.match(/\d+/)) {
-                  priceTexts.push(text);
-                }
-              }
-            }
-            return priceTexts;
-          });
-          
-          console.log("Textos brutos de preço encontrados:", rawPrices);
-          
-          // Processar os preços
-          if (rawPrices.length > 0) {
-            // Função para limpar e extrair o valor numérico do preço
-            const extractPrice = (text) => {
-              const matches = text.match(/R\$\s*(\d+[.,]?\d*)/);
-              if (matches && matches[1]) {
-                return matches[1].replace('.', ',');
-              }
-              return null;
-            };
-            
-            // Extrair valores numéricos
-            const prices = rawPrices
-              .map(extractPrice)
-              .filter(p => p)
-              .sort((a, b) => {
-                return parseFloat(a.replace(',', '.')) - parseFloat(b.replace(',', '.'));
-              });
-            
-            console.log("Preços numéricos extraídos:", prices);
-            
-            if (prices.length > 0) {
-              productData.currentPrice = prices[0];
-              if (prices.length > 1) {
-                productData.originalPrice = prices[prices.length - 1];
-              }
-            }
-          }
-        } catch (extractError) {
-          console.log("Erro ao extrair preços da página:", extractError.message);
-        }
-      }
-    }
-    
-    // Se ainda não conseguimos o preço, usar um placeholder para teste
-    if (!productData.currentPrice || productData.currentPrice === 'Preço não disponível' || productData.currentPrice.length > 10) {
-      // Com base no nome do produto, determinar um preço fictício razoável
-      let placeholderPrice = "349";
-      let placeholderOriginalPrice = "599";
-      
-      // Se o nome contém palavras-chave
-      if (productData.name) {
-        const name = productData.name.toLowerCase();
-        if (name.includes('tênis') || name.includes('tenis')) {
-          if (name.includes('adidas') || name.includes('nike')) {
-            placeholderPrice = "499";
-            placeholderOriginalPrice = "799";
-          }
-        } else if (name.includes('camiseta')) {
-          placeholderPrice = "99";
-          placeholderOriginalPrice = "149";
-        }
-      }
-      
-      productData.currentPrice = placeholderPrice;
-      productData.originalPrice = placeholderOriginalPrice;
-      productData.isPlaceholder = true;
-    }
     
     // Preservar o link original de afiliado
     productData.productUrl = url;
