@@ -413,7 +413,7 @@ function App() {
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.4</span>
+        <span className="app-version">Versão 2.0</span>
       </header>
       
       <div className="main-card">
