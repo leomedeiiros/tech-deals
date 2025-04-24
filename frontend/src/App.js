@@ -344,7 +344,7 @@ function App() {
     );
   };
   
-  // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
+ // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
 const shareWhatsApp = async () => {
   if (!finalMessage) {
     setError('Nenhuma mensagem para compartilhar.');
@@ -359,34 +359,44 @@ const shareWhatsApp = async () => {
   // Obter a mensagem atual (possivelmente editada)
   const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
   
-  // Verificar se o navegador suporta Web Share API com arquivos
-  if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+  // Tentar usar Web Share API se estiver disponível (para texto ou para arquivos)
+  if (navigator.share) {
     try {
-      await navigator.share({
-        text: messageToShare,
-        files: [imageFile]
-      });
+      // Se tiver imagem, tenta compartilhar com ela
+      if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+        await navigator.share({
+          text: messageToShare,
+          files: [imageFile]
+        });
+      } else {
+        // Caso contrário, compartilha apenas o texto
+        await navigator.share({
+          text: messageToShare
+        });
+      }
       return; // Se compartilhou com sucesso, encerra a função
     } catch (err) {
-      console.warn('Compartilhamento com arquivo falhou:', err);
+      console.warn('Compartilhamento falhou:', err);
       // Continua para o fallback abaixo
     }
   }
   
+  // Fallback para métodos tradicionais se Web Share API não estiver disponível ou falhar
   // Verificar se é dispositivo móvel
   const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
   
   if (isMobile) {
-    // Abordagem direta com número de telefone (funciona melhor em iOS e Android)
+    // Em dispositivos móveis, tentar abrir diretamente o app
     const encodedMessage = encodeURIComponent(messageToShare);
-    window.location.href = `whatsapp://send?phone=&text=${encodedMessage}`;
+    window.location.href = `whatsapp://send?text=${encodedMessage}`;
     
-    // Se após 500ms ainda estamos na página, tentar API alternativa
+    // Como fallback, se após 1 segundo o usuário ainda estiver na página,
+    // redirecionar para o wa.me que funciona melhor em iOS
     setTimeout(() => {
       if (document.hasFocus()) {
-        window.location.href = `https://wa.me/?text=${encodedMessage}`;
+        window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
       }
-    }, 500);
+    }, 1000);
   } else {
     // Em desktop, abrir o WhatsApp Web
     window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(messageToShare)}`, '_blank');
