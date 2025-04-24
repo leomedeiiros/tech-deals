@@ -314,156 +314,97 @@ exports.scrapeProductData = async (url) => {
     
     // Tirar screenshot para debug
     await page.screenshot({path: 'centauro-produto.png'});
+    
+    // Extrair dados do produto com seletores atualizados e mais robustos
+    const productData = await page.evaluate(() => {
+      // Função especial para detectar e extrair preços no formato "De X Por Y"
+      const extractDeParPrices = () => {
+        // Procurar elementos que contenham o texto "De R$" ou elementos com classe relacionada
+        const deElements = document.querySelectorAll('[class*="preco-de"], [class*="price-old"], .stroke, .original-price');
+        const porElements = document.querySelectorAll('[class*="preco-por"], [class*="price-new"], .destaque, .current-price');
+        
+        let dePrice = null;
+        let porPrice = null;
+        
+        // Primeiro, tentar extrair "De R$" do elemento mais provável
+        for (const el of deElements) {
+          const text = el.textContent.trim();
+          if (text.includes('R$')) {
+            const matches = text.match(/R\$\s*(\d+[\.,]\d+)/);
+            if (matches && matches[1]) {
+              dePrice = matches[1].replace('.', ',');
+              break;
+            }
+          }
+        }
+        
+        // Depois, tentar extrair "Por R$" do elemento mais provável
+        for (const el of porElements) {
+          const text = el.textContent.trim();
+          if (text.includes('R$')) {
+            const matches = text.match(/R\$\s*(\d+[\.,]\d+)/);
+            if (matches && matches[1]) {
+              porPrice = matches[1].replace('.', ',');
+              break;
+            }
+          }
+        }
+        
+        // Tentar o formato mais explícito De/Por
+        if (!dePrice || !porPrice) {
+          const deParaRegex = /De\s*R\$\s*(\d+[\.,]\d+)[\s\S]*?(?:Por|por)\s*R\$\s*(\d+[\.,]\d+)/i;
+          const bodyText = document.body.innerText;
+          const deParaMatch = bodyText.match(deParaRegex);
+          
+          if (deParaMatch) {
+            if (!dePrice) dePrice = deParaMatch[1].replace('.', ',');
+            if (!porPrice) porPrice = deParaMatch[2].replace('.', ',');
+          }
+        }
+        
+        // Verificar no DOM por texto explícito com estrutura clara
+        if (!dePrice || !porPrice) {
+          // Buscar o elemento de preço principal
+          const priceContainer = document.querySelector('.product-price, .price-box, [class*="price-container"]');
+          if (priceContainer) {
+            const html = priceContainer.innerHTML;
+            // Verificar por textos explícitos "De" e "Por"
+            const deMatch = html.match(/De\s*R\$\s*(\d+[\.,]\d+)/i);
+            const porMatch = html.match(/Por\s*R\$\s*(\d+[\.,]\d+)/i);
+            
+            if (deMatch && !dePrice) dePrice = deMatch[1].replace('.', ',');
+            if (porMatch && !porPrice) porPrice = porMatch[1].replace('.', ',');
+          }
+        }
+        
+        return { originalPrice: dePrice, currentPrice: porPrice };
+      };
 
-    // NOVO: Extração precisa do formato "De R$ X" e "Por R$ Y"
-    const precos = await page.evaluate(() => {
       // Função para limpar texto de preço
       const cleanPrice = (price) => {
         if (!price) return '';
+        
+        // Verificar se temos múltiplos preços concatenados
+        if (price.length > 10) {
+          // Se houver mais de 10 caracteres, provavelmente temos preços concatenados
+          // Pegar apenas o primeiro preço
+          const matches = price.match(/(\d+,\d+)/);
+          if (matches && matches[1]) {
+            return matches[1];
+          }
+        }
+        
         return price.replace(/[^\d,]/g, '').trim();
       };
-
-      // Busca específica pelo formato "De R$ X"
-      let originalPrice = '';
-      const dePriceElement = document.querySelector('.price, .valor-de, span.de, .preco-de, div:contains("De"), p:contains("De")');
-      if (dePriceElement) {
-        const deText = dePriceElement.textContent.trim();
-        const deMatch = deText.match(/De\s*R\$\s*(\d+[.,]\d+)/i);
-        if (deMatch && deMatch[1]) {
-          originalPrice = deMatch[1].replace('.', ',');
-        }
-      }
-
-      // Tenta localizar o texto "De R$" em qualquer lugar
-      if (!originalPrice) {
-        // Procurar todos os elementos com texto
-        const elements = document.querySelectorAll('*');
-        for (const el of elements) {
-          if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
-            const text = el.textContent.trim();
-            if (text.match(/^\s*De\s*R\$\s*\d+/i)) {
-              const match = text.match(/De\s*R\$\s*(\d+[.,]\d+)/i);
-              if (match && match[1]) {
-                originalPrice = match[1].replace('.', ',');
-                break;
-              }
-            }
-          }
-        }
-      }
       
-      // Busca específica por elementos que mostram preço original
-      if (!originalPrice) {
-        const deRsElement = document.querySelector('div.price.Rs, .strikeout-price, div.de, span.de');
-        if (deRsElement) {
-          const priceMatch = deRsElement.textContent.match(/R\$\s*(\d+[.,]\d+)/);
-          if (priceMatch && priceMatch[1]) {
-            originalPrice = priceMatch[1].replace('.', ',');
-          }
-        }
-      }
-
-      // Busca específica pelo elemento que diz "De R$ XXX,XX"
-      if (!originalPrice) {
-        const allDivs = document.querySelectorAll('div, span, p');
-        for (const div of allDivs) {
-          const text = div.textContent.trim();
-          if (text.match(/^De\s*R\$/i)) {
-            const matches = text.match(/De\s*R\$\s*(\d+[.,]\d+)/i);
-            if (matches && matches[1]) {
-              originalPrice = matches[1].replace('.', ',');
-              break;
-            }
-          }
-        }
-      }
-
-      // Busca específica pelo formato "Por R$ Y"
-      // Primeiro, verifica elementos específicos da Centauro para o preço atual
-      let currentPrice = '';
-      const porPriceElement = document.querySelector('.showcase-price .price, p.no-pix, div.highlight .rs, .preco-promocional, .valor-por');
-      if (porPriceElement) {
-        const porText = porPriceElement.textContent.trim();
-        const porMatch = porText.match(/(?:Por)?\s*R\$\s*(\d+[.,]\d+)/i);
-        if (porMatch && porMatch[1]) {
-          currentPrice = porMatch[1].replace('.', ',');
-        }
-      }
-
-      // Tenta localizar o texto "Por R$" ou "R$ X no Pix" em qualquer lugar
-      if (!currentPrice) {
-        // Procurar todos os elementos com texto
-        const elements = document.querySelectorAll('*');
-        for (const el of elements) {
-          if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
-            const text = el.textContent.trim();
-            if (text.match(/^\s*(?:Por\s*)?R\$\s*\d+[.,]\d+\s*(?:no\s*Pix)?$/i)) {
-              const match = text.match(/R\$\s*(\d+[.,]\d+)/i);
-              if (match && match[1]) {
-                currentPrice = match[1].replace('.', ',');
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      // ESPECÍFICO CENTAURO: Procurar pelo elemento "R$ X no Pix"
-      if (!currentPrice) {
-        const noPix = document.querySelector('p.no-pix, div.current-price, div.rs, [class*="pix"]');
-        if (noPix) {
-          const pixMatch = noPix.textContent.match(/R\$\s*(\d+[.,]\d+)/);
-          if (pixMatch && pixMatch[1]) {
-            currentPrice = pixMatch[1].replace('.', ',');
-          }
-        }
-      }
-
-      // Fallback: Se não encontrou preço atual usando métodos específicos,
-      // procura qualquer elemento que possa conter o preço atual
-      if (!currentPrice) {
-        const currentPriceElements = [
-          document.querySelector('p.no-pix, div.highlight .rs, .preco-atual, .price-best'),
-          document.querySelector('[id*="product-price"], .atual-preco, .rs, strong.destaque'),
-          document.querySelector('.highlight .rs, div[class*="price"] .rs, .best-price-view, .price-new .rs')
-        ];
-
-        for (const el of currentPriceElements) {
-          if (el) {
-            const priceMatch = el.textContent.match(/R\$\s*(\d+[.,]\d+)/);
-            if (priceMatch && priceMatch[1]) {
-              currentPrice = priceMatch[1].replace('.', ',');
-              break;
-            }
-          }
-        }
-      }
-
-      // Outro método específico para Centauro: verificar no HTML se existe uma estrutura específica
-      if (!originalPrice || !currentPrice) {
-        // Detecta a estrutura De/Por da Centauro
-        const deParSection = document.querySelector('.price-box, .product-price, .price-container');
-        if (deParSection) {
-          const deElement = deParSection.querySelector('.de, .original-price, .old-price');
-          const porElement = deParSection.querySelector('.por, .current-price, .new-price, .best-price');
-          
-          if (deElement && !originalPrice) {
-            const deMatch = deElement.textContent.match(/R\$\s*(\d+[.,]\d+)/);
-            if (deMatch && deMatch[1]) {
-              originalPrice = deMatch[1].replace('.', ',');
-            }
-          }
-          
-          if (porElement && !currentPrice) {
-            const porMatch = porElement.textContent.match(/R\$\s*(\d+[.,]\d+)/);
-            if (porMatch && porMatch[1]) {
-              currentPrice = porMatch[1].replace('.', ',');
-            }
-          }
-        }
-      }
+      // Função para extrair preço com R$
+      const extractPriceWithRS = (text) => {
+        if (!text) return null;
+        const match = text.match(/R\$\s*(\d+[.,]\d+)/);
+        return match ? match[1].replace('.', ',') : null;
+      };
       
-      // Nome do produto
+      // Nome do produto - múltiplos seletores para maior robustez
       let productTitle = '';
       const titleSelectors = [
         '.product-name',
@@ -485,7 +426,256 @@ exports.scrapeProductData = async (url) => {
           break;
         }
       }
-
+      
+      // Extrair preços no formato "De Por" específico da Centauro
+      const dePorPrices = extractDeParPrices();
+      let originalPrice = dePorPrices.originalPrice;
+      let currentPrice = dePorPrices.currentPrice;
+      
+      if (dePorPrices.originalPrice && dePorPrices.currentPrice) {
+        console.log("Preços extraídos no formato De/Por:", dePorPrices);
+      }
+      
+      // Se ainda não tivermos preços, tentar métodos alternativos:
+      
+      // Verificação adicional específica para a Centauro para "De R$ X,XX" (sem o "Por")
+      if (!originalPrice || !currentPrice) {
+        const deElement = document.querySelector('.preco-de, .price-old, .original-price');
+        if (deElement) {
+          const deText = deElement.textContent.trim();
+          const deMatch = deText.match(/R\$\s*(\d+[\.,]\d+)/);
+          if (deMatch) {
+            originalPrice = deMatch[1].replace('.', ',');
+            
+            // Se temos o preço original mas não o atual, buscar o atual especificamente
+            if (!currentPrice) {
+              const porElement = document.querySelector('.preco-por, .price-new, .current-price, .highlight, [class*="price-value"]');
+              if (porElement) {
+                const porText = porElement.textContent.trim();
+                const porMatch = porText.match(/R\$\s*(\d+[\.,]\d+)/);
+                if (porMatch) {
+                  currentPrice = porMatch[1].replace('.', ',');
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // ADICIONAR: Prioridade para o preço "no Pix"
+      // Buscar especificamente por texto que contenha "no Pix"
+      const pixElements = Array.from(document.querySelectorAll('*')).filter(el => 
+        el.textContent.trim().toLowerCase().includes('no pix') && 
+        el.textContent.includes('R$')
+      );
+      
+      if (pixElements.length > 0) {
+        for (const el of pixElements) {
+          const pixText = el.textContent.trim();
+          const pixMatch = pixText.match(/R\$\s*(\d+[\.,]\d+)/);
+          if (pixMatch) {
+            currentPrice = pixMatch[1].replace('.', ',');
+            console.log("Preço no Pix extraído:", currentPrice);
+            break;
+          }
+        }
+      }
+      
+      // Preço atual - verificar múltiplos seletores possíveis (caso os métodos acima falhem)
+      if (!currentPrice) {
+        const priceSelectors = [
+          '.preco-promocional',  // Seletor específico para o preço promocional
+          '.valor-por',
+          '.showcase-price .price', 
+          '.preco-atual',
+          '.price-best',
+          '[id*="product-price"]',
+          '.atual-preco',
+          '.preco-atual strong',
+          'span.valor',
+          '.best-price',
+          '.actual-price',
+          '.price-box__best',
+          '.product-price',
+          '.price > span',
+          '[data-testid*="price"]',
+          '[class*="actualPrice"]',
+          '[class*="current-price"]',
+          '[class*="currentPrice"]',
+          '[class*="bestPrice"]',
+          '[class*="priceValue"]',
+          '[class*="price-value"]',
+          'span[class*="price"]',
+          // Específicos Centauro
+          'div.highlight .rs',
+          'p.no-pix',
+          '.prod-price-new',
+          'div.product-price .Rs',
+          '.normal-price .rs',
+          'div[class*="price"] .rs',
+          '.best-price-view',
+          '.price-new .rs'
+        ];
+        
+        for (const selector of priceSelectors) {
+          const element = document.querySelector(selector);
+          if (element && element.textContent.trim()) {
+            currentPrice = cleanPrice(element.textContent);
+            if (currentPrice) break;
+          }
+        }
+      }
+      
+      // Preço original (riscado) - caso os métodos acima falhem
+      if (!originalPrice) {
+        const originalPriceSelectors = [
+          '.preco-de',
+          '.valor-de',
+          '.preco-antigo',
+          '.old-price',
+          '.price-old',
+          '.preco-list-item .valor',
+          '.valor-de strike',
+          'span.de',
+          '.original-price del',
+          '.list-price',
+          '.price-box__old',
+          '[data-testid*="list-price"]',
+          '[class*="oldPrice"]',
+          '[class*="original-price"]',
+          '[class*="originalPrice"]',
+          '[class*="listPrice"]',
+          'span[class*="old"]',
+          // Específicos Centauro
+          'div.price.Rs',
+          'p.de',
+          '.product-price-old',
+          '.product-price .old-price',
+          '.strikeout-price',
+          '.price-old span',
+          '.stroke.rs',
+          '.price-old .Rs',
+          '.strikethrough-price'
+        ];
+        
+        for (const selector of originalPriceSelectors) {
+          const element = document.querySelector(selector);
+          if (element && element.textContent.trim()) {
+            originalPrice = cleanPrice(element.textContent);
+            if (originalPrice) break;
+          }
+        }
+      }
+      
+      // Se ainda não encontrou o preço atual, procurar no HTML da página
+      if (!currentPrice) {
+        const priceRegex = /R\$\s*(\d+[.,]\d+)/g;
+        const matches = document.body.textContent.match(priceRegex);
+        if (matches && matches.length > 0) {
+          currentPrice = cleanPrice(matches[0]);
+        }
+      }
+      
+      // Verificar padrão "De R$ X por R$ Y" no texto da página
+      if (!originalPrice || !currentPrice) {
+        const deParaRegex = /de\s*r\$\s*(\d+[.,]\d+)(?:\s*por)?\s*r\$\s*(\d+[.,]\d+)/i;
+        const bodyText = document.body.textContent;
+        const deParaMatch = bodyText.match(deParaRegex);
+        
+        if (deParaMatch) {
+          const de = deParaMatch[1].replace('.', ',');
+          const por = deParaMatch[2].replace('.', ',');
+          
+          if (!originalPrice) originalPrice = de;
+          if (!currentPrice) currentPrice = por;
+        }
+      }
+      
+      // Tentar extrair do elemento "De R$"
+      const deElements = document.querySelectorAll('.de, .old-price, .price-old, .original-price, [class*="de"], [class*="original"]');
+      for (const el of deElements) {
+        const priceText = el.textContent.trim();
+        const extracted = extractPriceWithRS(priceText);
+        if (extracted && (!originalPrice || originalPrice === '')) {
+          originalPrice = extracted;
+          break;
+        }
+      }
+      
+      // Tentar extrair do elemento "Por R$"
+      const porElements = document.querySelectorAll('.por, .new-price, .price-new, .current-price, [class*="por"], [class*="current"]');
+      for (const el of porElements) {
+        const priceText = el.textContent.trim();
+        const extracted = extractPriceWithRS(priceText);
+        if (extracted && (!currentPrice || currentPrice === '')) {
+          currentPrice = extracted;
+          break;
+        }
+      }
+      
+      // Elemento específico na Centauro "De/Por"
+      try {
+        // Procurar diretamente pelo elemento que contém "De R$"
+        const deElement = Array.from(document.querySelectorAll('*')).find(el => 
+          el.textContent.trim().match(/^De R\$/i)
+        );
+        
+        if (deElement) {
+          const deParentElement = deElement.parentElement;
+          if (deParentElement) {
+            const deText = deParentElement.textContent;
+            const deMatch = deText.match(/De R\$\s*(\d+[.,]\d+)/i);
+            if (deMatch && deMatch[1]) {
+              originalPrice = deMatch[1].replace('.', ',');
+            }
+          }
+        }
+        
+        // Procurar pelo elemento específico "R$ X,XX"
+        // A Centauro normalmente usa este formato para o preço atual
+        const rsElements = document.querySelectorAll('.rs, .Rs, [class*="price"] span, [class*="valor"] span');
+        for (const el of rsElements) {
+          const text = el.textContent.trim();
+          if (text.match(/^R\$\s*\d+/)) {
+            const extracted = extractPriceWithRS(text);
+            if (extracted) {
+              if (el.closest('.old-price, .price-old, .original-price')) {
+                originalPrice = extracted;
+              } else {
+                currentPrice = extracted;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Ignorar erros ao tentar métodos específicos
+      }
+      
+      // No final da função, verificar se currentPrice contém valor parcelado
+      // Se o currentPrice contém um formato como "10x de R$ 45,99", extrair apenas o valor total
+      if (currentPrice && currentPrice.includes('x de')) {
+        const totalMatch = currentPrice.match(/(\d+)x de R\$\s*(\d+[\.,]\d+)/i);
+        if (totalMatch) {
+          const parcelas = parseInt(totalMatch[1]);
+          const valorParcela = parseFloat(totalMatch[2].replace(',', '.'));
+          currentPrice = (parcelas * valorParcela).toFixed(2).replace('.', ',');
+        }
+      }
+      
+      // Verificar se o preço atual é menor que o original (como esperado)
+      if (originalPrice && currentPrice) {
+        const origValue = parseFloat(originalPrice.replace(',', '.'));
+        const currValue = parseFloat(currentPrice.replace(',', '.'));
+        
+        if (origValue <= currValue) {
+          // Inverter apenas se a diferença for substancial (> 5% para evitar erros de arredondamento)
+          if (currValue > origValue * 1.05) {
+            console.log("Invertendo preços porque preço atual > preço original");
+            [originalPrice, currentPrice] = [currentPrice, originalPrice];
+          }
+        }
+      }
+      
       // Imagem do produto
       let productImage = '';
       const imageSelectors = [
@@ -510,16 +700,55 @@ exports.scrapeProductData = async (url) => {
           if (productImage) break;
         }
       }
-
-      // IMPORTANTE: Na tela da Centauro, o preço De/Por pode estar em lugares diferentes
-      // Procurar no HTML inteiro por padrões De R$ X Por R$ Y
-      const bodyHTML = document.documentElement.outerHTML;
-      const deParaMatches = bodyHTML.match(/De\s*R\$\s*(\d+[.,]\d+).*?(?:Por)?\s*R\$\s*(\d+[.,]\d+)/is);
-      if (deParaMatches) {
-        if (!originalPrice) originalPrice = deParaMatches[1].replace('.', ',');
-        if (!currentPrice) currentPrice = deParaMatches[2].replace('.', ',');
+      
+      // Tentar extrair informações de um script JSON
+      try {
+        const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+        for (const script of scripts) {
+          try {
+            const jsonData = JSON.parse(script.textContent);
+            if (jsonData && (jsonData['@type'] === 'Product' || (jsonData.offers && jsonData.name))) {
+              // Usar dados do JSON se disponíveis
+              if (!productTitle && jsonData.name) {
+                productTitle = jsonData.name;
+              }
+              
+              if (!currentPrice && jsonData.offers) {
+                const price = typeof jsonData.offers === 'object' ? 
+                  jsonData.offers.price : 
+                  jsonData.offers[0]?.price;
+                
+                if (price) {
+                  currentPrice = price.toString().replace('.', ',');
+                }
+              }
+              
+              if (!productImage && jsonData.image) {
+                productImage = Array.isArray(jsonData.image) ? jsonData.image[0] : jsonData.image;
+              }
+              
+              break;
+            }
+          } catch (e) {
+            // Ignorar erros de parsing
+          }
+        }
+      } catch (e) {
+        // Ignorar erros ao processar scripts JSON
       }
-
+      
+      // Checagem adicional para garantir que o preço original é maior que o atual
+      if (originalPrice && currentPrice) {
+        const origValue = parseFloat(originalPrice.replace(',', '.'));
+        const currValue = parseFloat(currentPrice.replace(',', '.'));
+        
+        if (origValue <= currValue) {
+          // Se o preço "original" for menor, temos um problema - inverter
+          console.log("Inverting prices because original <= current");
+          [originalPrice, currentPrice] = [currentPrice, originalPrice];
+        }
+      }
+      
       return {
         name: productTitle || 'Nome do produto não encontrado',
         currentPrice: currentPrice || 'Preço não disponível',
@@ -527,12 +756,155 @@ exports.scrapeProductData = async (url) => {
         imageUrl: productImage || '',
         vendor: 'Centauro',
         platform: 'centauro',
-        realProductUrl: window.location.href,
-        // Adicionando os textos completos para log de debug
-        debugDeText: document.querySelector('.price, .valor-de, span.de, .preco-de')?.textContent || 'Não encontrado',
-        debugPorText: document.querySelector('.showcase-price .price, p.no-pix, div.highlight .rs')?.textContent || 'Não encontrado'
+        realProductUrl: window.location.href
       };
     });
+    
+    // Verificação adicional para extrair os preços corretos
+    if (productData.name !== 'Nome do produto não encontrado') {
+      // Extrair os preços da página inteira
+      const allPricesData = await page.evaluate(() => {
+        // Função auxiliar para extrair preço com formato R$
+        const extractPrice = (text) => {
+          if (!text) return null;
+          const match = text.match(/R\$\s*(\d+[.,]\d+)/);
+          return match ? match[1].replace('.', ',') : null;
+        };
+        
+        // Pegar todos os textos que contêm R$
+        const priceTexts = [];
+        const walker = document.createTreeWalker(
+          document.body, 
+          NodeFilter.SHOW_TEXT, 
+          { acceptNode: node => node.textContent.includes('R$') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT }
+        );
+        
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          const text = node.textContent.trim();
+          
+          // Ignorar nós vazios
+          if (!text) continue;
+          
+          const price = extractPrice(text);
+          if (price) {
+            // Verificar se é preço original baseado no contexto
+            const parentEl = node.parentElement;
+            const isOriginal = parentEl && (
+              parentEl.classList.toString().match(/old|original|de|stroke|strike|through/) ||
+              parentEl.textContent.toLowerCase().includes('de r$')
+            );
+            
+            priceTexts.push({
+              text,
+              price,
+              isOriginal
+            });
+          }
+        }
+        
+        // Verificar preços de/por
+        const deParaMatches = document.body.textContent.match(/de\s*r\$\s*(\d+[.,]\d+)\s*por\s*r\$\s*(\d+[.,]\d+)/gi);
+        let deParaPrices = [];
+        
+        if (deParaMatches) {
+          deParaMatches.forEach(match => {
+            const parts = match.match(/de\s*r\$\s*(\d+[.,]\d+)\s*por\s*r\$\s*(\d+[.,]\d+)/i);
+            if (parts) {
+              deParaPrices.push({
+                original: parts[1].replace('.', ','),
+                current: parts[2].replace('.', ',')
+              });
+            }
+          });
+        }
+        
+        return {priceTexts, deParaPrices};
+      });
+      
+      console.log("Todos os preços encontrados:", allPricesData);
+      
+      // Usar de/por matches se disponíveis
+      if (allPricesData.deParaPrices && allPricesData.deParaPrices.length > 0) {
+        const firstDePara = allPricesData.deParaPrices[0];
+        productData.originalPrice = firstDePara.original;
+        productData.currentPrice = firstDePara.current;
+        console.log("Usando preços de 'de/por' pattern:", firstDePara);
+      } 
+      // Caso contrário, usar os preços extraídos da página
+      else if (allPricesData.priceTexts && allPricesData.priceTexts.length > 0) {
+        // Converter para números para comparação
+        const prices = allPricesData.priceTexts.map(item => ({
+          ...item,
+          value: parseFloat(item.price.replace(',', '.'))
+        }));
+        
+        // Ordenar preços (menor para maior)
+        prices.sort((a, b) => a.value - b.value);
+        
+        // Se temos elementos marcados como originais, usar eles
+        const originalPrices = prices.filter(p => p.isOriginal);
+        const currentPrices = prices.filter(p => !p.isOriginal);
+        
+        // Se temos preços originais identificados, usar o maior deles
+        if (originalPrices.length > 0) {
+          // Pegar o maior preço original
+          originalPrices.sort((a, b) => b.value - a.value);
+          productData.originalPrice = originalPrices[0].price;
+        } 
+        // Caso contrário, se temos pelo menos 2 preços, o maior é provavelmente o original
+        else if (prices.length >= 2) {
+          productData.originalPrice = prices[prices.length - 1].price;
+        }
+        
+        // Se temos preços atuais identificados, usar o menor deles
+        if (currentPrices.length > 0) {
+          productData.currentPrice = currentPrices[0].price;
+        } 
+        // Caso contrário, se temos pelo menos 1 preço, o menor é provavelmente o atual
+        else if (prices.length >= 1) {
+          productData.currentPrice = prices[0].price;
+        }
+        
+        // Verificar se o preço original é maior que o preço atual (como esperado)
+        if (productData.originalPrice && productData.currentPrice) {
+          const origValue = parseFloat(productData.originalPrice.replace(',', '.'));
+          const currValue = parseFloat(productData.currentPrice.replace(',', '.'));
+          
+          if (origValue <= currValue) {
+            // Se não for, provavelmente temos um problema. Tente inverter se tivermos mais de um preço.
+            if (prices.length >= 2) {
+              productData.originalPrice = prices[prices.length - 1].price;
+              productData.currentPrice = prices[0].price;
+            }
+          }
+        }
+      }
+    }
+    
+    // ADICIONAL: Verificar especificamente por preços com "no Pix"
+    const pixData = await page.evaluate(() => {
+      const pixElements = Array.from(document.querySelectorAll('*')).filter(el => 
+        el.textContent.trim().toLowerCase().includes('no pix') && 
+        el.textContent.includes('R$')
+      );
+      
+      if (pixElements.length > 0) {
+        for (const el of pixElements) {
+          const pixText = el.textContent.trim();
+          const pixMatch = pixText.match(/R\$\s*(\d+[\.,]\d+)/);
+          if (pixMatch) {
+            return pixMatch[1].replace('.', ',');
+          }
+        }
+      }
+      return null;
+    });
+    
+    if (pixData) {
+      console.log("Preço no Pix encontrado:", pixData);
+      productData.currentPrice = pixData;
+    }
     
     // Log para depuração
     console.log("Dados extraídos da Centauro:", JSON.stringify(productData, null, 2));
