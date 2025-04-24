@@ -199,27 +199,44 @@ exports.scrapeProductData = async (url) => {
         productUrl = `https://www.nike.com.br/${productCode}.html`;
         console.log(`Código do produto extraído: ${productCode}`);
         
-        // Tentar abrir diretamente com um novo user agent
-        await page.close();
-        
-        const newPage = await browser.newPage();
-        // Usar um user agent diferente
-        await newPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36 Edg/92.0.902.73');
-        
-        await newPage.setExtraHTTPHeaders({
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Referer': 'https://www.google.com.br/search?q=nike'
-        });
-        
         try {
+          // CORREÇÃO: Em vez de fechar a página atual e criar uma nova,
+          // vamos usar uma nova página separada e decidir qual usar baseado no resultado
+          
+          const newPage = await browser.newPage();
+          // Usar um user agent diferente
+          await newPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36 Edg/92.0.902.73');
+          
+          await newPage.setExtraHTTPHeaders({
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Referer': 'https://www.google.com.br/search?q=nike'
+          });
+          
           await newPage.goto(productUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-          // Usar a nova página
-          page = newPage;
           await wait(3000);
+          
+          // Verificar se a nova página não está na tela de Access Denied
+          const stillDenied = await newPage.evaluate(() => {
+            return document.body.textContent.includes('Access Denied') || 
+                   document.title.includes('Access Denied') ||
+                   document.body.textContent.includes('Acesso Negado');
+          });
+          
+          if (!stillDenied) {
+            // Se conseguimos acessar o site, fechamos a página antiga e usamos a nova
+            await page.close();
+            page = newPage;  // Agora podemos reatribuir page pois ela foi declarada como 'let' no início da função
+            currentUrl = page.url();
+            console.log(`Nova URL após contorno: ${currentUrl}`);
+          } else {
+            // Se ainda tem acesso negado, fechamos a nova página e continuamos com a original
+            console.log('Ainda com Access Denied, usando a página original');
+            await newPage.close();
+          }
         } catch (innerError) {
           console.log(`Erro ao tentar contornar Access Denied: ${innerError.message}`);
-          // Continuar com a página original
+          // Continuamos com a página original, não é necessário fechar nada
         }
       }
     }
