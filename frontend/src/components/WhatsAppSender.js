@@ -15,11 +15,11 @@ const WhatsAppSender = ({ message, className }) => {
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
     
     if (isMobile) {
-      // Em dispositivos móveis, tentar abrir diretamente o app
+      // Em dispositivos móveis, SEMPRE tentar abrir diretamente o app primeiro
       window.location.href = `whatsapp://send?text=${encodedMessage}`;
       
       // Como fallback, se após 1 segundo o usuário ainda estiver na página,
-      // redirecionar para o wa.me que funciona melhor em iOS
+      // redirecionar para o api.whatsapp.com que funciona melhor em iOS
       setTimeout(() => {
         if (document.hasFocus()) {
           window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
