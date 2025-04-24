@@ -1,41 +1,57 @@
 import React from 'react';
 
-const WhatsAppSender = ({ message, className }) => {
-  const handleDirectWhatsApp = () => {
+const WhatsAppSender = ({ message, className, imageFile }) => {
+  const handleDirectWhatsApp = async () => {
     if (!message) {
       alert("Nenhuma mensagem para compartilhar.");
       return;
     }
 
-    // Preparar a mensagem garantindo que as quebras de linha sejam preservadas
-    const messageText = message.replace(/\n/g, '\n'); // Garantir quebras de linha corretas
-    
     // Verificar se é dispositivo móvel
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     
-    if (isMobile) {
-      // Tentar método direto do WhatsApp
+    // Tentar usar Web Share API com arquivos primeiro, se houver arquivo
+    if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
       try {
-        // Em dispositivos Android, tentar abrir diretamente com whatsapp://
-        const androidIntent = `whatsapp://send?text=${encodeURIComponent(messageText)}`;
-        window.location.href = androidIntent;
+        await navigator.share({
+          text: message,
+          files: [imageFile]
+        });
+        return; // Se compartilhou com sucesso, encerra a função
+      } catch (err) {
+        console.warn('Compartilhamento com arquivo falhou:', err);
+        // Continua para o fallback abaixo
+      }
+    }
+    
+    // Para dispositivos móveis sem anexos
+    if (isMobile) {
+      // Em dispositivos iOS, use URL específica
+      if (isIOS) {
+        // No iOS tente abrir direto no app com URL específica
+        window.location.href = `whatsapp://send?text=${encodeURIComponent(message)}`;
         
-        // Verificar após um tempo curto se ainda estamos na página
+        // Fallback se a página ainda estiver ativa após um curto período
         setTimeout(() => {
           if (document.hasFocus()) {
-            // Fallback para iOS (usando link universal)
-            const universalLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
-            window.location.href = universalLink;
+            window.location = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
           }
-        }, 500);
-      } catch (e) {
-        // Fallback se o método direto falhar
-        const universalLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
-        window.location.href = universalLink;
+        }, 300);
+      } else {
+        // Para Android, use primeiro a URL do aplicativo
+        window.location.href = `whatsapp://send?text=${encodeURIComponent(message)}`;
+        
+        // Fallback para o link web
+        setTimeout(() => {
+          if (document.hasFocus()) {
+            window.location = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+          }
+        }, 300);
       }
     } else {
       // Em desktop, abrir o WhatsApp Web
-      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(messageText)}`, '_blank');
+      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
     }
   };
 
