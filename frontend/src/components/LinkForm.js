@@ -1,63 +1,73 @@
 // frontend/src/components/LinkForm.js
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
-const LinkForm = ({ recentLinks = [] }) => {
+const LinkForm = ({ onProductDataReceived, setLoading, setError, setCouponCode, recentLinks = [] }) => {
   const [url, setUrl] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   
-  // Efeito de animação ao carregar
-  useEffect(() => {
-    const input = document.querySelector('.form-input');
-    if (input) {
-      input.classList.add('animate-in');
-      setTimeout(() => {
-        input.classList.remove('animate-in');
-      }, 500);
+  const handleExtract = async () => {
+    if (!url) {
+      setError('Por favor, insira um link de afiliado.');
+      return;
     }
-  }, []);
-  
-  const handleChange = (e) => {
-    setUrl(e.target.value);
-  };
-
-  const handleFocus = () => {
-    setIsFocused(true);
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      // URL correta do backend no Render
+      const response = await axios.post(`${API_BASE_URL}/api/scrape`, { url });
+      
+      // Passar os dados do produto e a URL usada para o App.js
+      onProductDataReceived(response.data, url);
+    } catch (error) {
+      console.error('Erro ao obter dados do produto:', error);
+      setError(
+        error.response?.data?.error ||
+        'Falha ao obter dados do produto. Verifique o link e tente novamente.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (
-    <div className={`input-clear-wrapper ${isFocused ? 'focused' : ''}`}>
-      <input
-        type="url"
-        className="form-input"
-        value={url}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholder="Cole o link da Amazon ou Mercado Livre"
-        list="url-history"
-      />
-      {recentLinks && recentLinks.length > 0 && (
-        <datalist id="url-history">
-          {recentLinks.map((link, index) => (
-            <option key={index} value={link} />
-          ))}
-        </datalist>
-      )}
-      {url && (
-        <button 
-          className="clear-input-btn" 
-          onClick={() => setUrl('')}
-          type="button"
-          aria-label="Limpar campo"
-        >
-          <i className="fas fa-times"></i>
-        </button>
-      )}
-    </div>
+    <>
+      <div className="input-clear-wrapper">
+        <input
+          type="url"
+          className="form-input"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Cole o link da Amazon ou Mercado Livre"
+          list="url-history"
+        />
+        {recentLinks && recentLinks.length > 0 && (
+          <datalist id="url-history">
+            {recentLinks.map((link, index) => (
+              <option key={index} value={link} />
+            ))}
+          </datalist>
+        )}
+        {url && (
+          <button 
+            className="clear-input-btn" 
+            onClick={() => setUrl('')}
+            type="button"
+          >
+            <i className="fas fa-times"></i>
+          </button>
+        )}
+      </div>
+      <button
+        className="btn extract-btn"
+        onClick={handleExtract}
+      >
+        <i className="fas fa-search"></i>
+        Extrair Dados
+      </button>
+    </>
   );
 };
 
