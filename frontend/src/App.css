@@ -504,6 +504,36 @@ body {
   opacity: 1;
 }
 
+/* Destaque especial para botão de extrair dados */
+.extract-btn-wrapper {
+  padding: 24px;
+  background-color: rgba(88, 101, 242, 0.1);
+  border-bottom: 1px solid var(--border-color);
+  animation: fadeInUp 0.5s ease;
+  position: relative; 
+  overflow: hidden;
+}
+
+.extract-btn-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    rgba(88, 101, 242, 0.5), 
+    rgba(88, 101, 242, 0.8), 
+    rgba(88, 101, 242, 0.5)
+  );
+  animation: glowScan 2s infinite linear;
+}
+
+@keyframes glowScan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
 .store-type-group {
   display: flex;
   flex-wrap: wrap;
@@ -812,6 +842,8 @@ body {
 
 .copy-btn:hover {
   background: linear-gradient(135deg, var(--success-light), var(--success-color));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(16, 185, 129, 0.5);
 }
 
 .copy-btn:active {
@@ -906,6 +938,37 @@ body {
 /* Ajustar o padding do input para não sobrepor o botão de limpar */
 .input-clear-wrapper .form-input {
   padding-right: 42px;
+}
+
+/* Destaque especial para o botão de extração */
+.extract-btn-highlight {
+  background-color: rgba(88, 101, 242, 0.1);
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.extract-btn-highlight::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent,
+    rgba(88, 101, 242, 0.5), 
+    rgba(88, 101, 242, 0.8), 
+    rgba(88, 101, 242, 0.5),
+    transparent
+  );
+  animation: glowScan 3s infinite linear;
+}
+
+@keyframes glowScan {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(50%); }
 }
 
 /* Responsividade */

@@ -1,9 +1,7 @@
 // frontend/src/components/LinkForm.js
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
 
-const LinkForm = ({ onProductDataReceived, setLoading, setError, setCouponCode, recentLinks = [] }) => {
+const LinkForm = ({ recentLinks = [] }) => {
   const [url, setUrl] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   

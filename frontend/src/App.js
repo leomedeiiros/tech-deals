@@ -473,13 +473,32 @@ function App() {
         <div className={`section-content ${infoSectionOpen ? 'open' : ''}`}>
           <div className="form-group">
             <label className="form-label">Link da promoção</label>
-            <LinkForm 
-              onProductDataReceived={handleProductDataReceived}
-              setLoading={setLoading}
-              setError={setError}
-              setCouponCode={setCouponCode}
-              recentLinks={recentLinks}
-            />
+            <div className="input-clear-wrapper">
+              <input
+                type="url"
+                className="form-input"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="Cole o link da Amazon ou Mercado Livre"
+                list="url-history"
+              />
+              {recentLinks && recentLinks.length > 0 && (
+                <datalist id="url-history">
+                  {recentLinks.map((link, index) => (
+                    <option key={index} value={link} />
+                  ))}
+                </datalist>
+              )}
+              {url && (
+                <button 
+                  className="clear-input-btn" 
+                  onClick={() => setUrl('')}
+                  type="button"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              )}
+            </div>
           </div>
           
           <div className="form-group">
@@ -634,11 +653,34 @@ function App() {
           </div>
         </div>
 
-        {/* Botão Extrair Dados - Agora no final da página */}
-        <div className="section-content">
+        {/* Botão Extrair Dados - Com destaque especial para garantir visibilidade */}
+        <div style={{ 
+          padding: '24px', 
+          borderBottom: '1px solid var(--border-color)',
+          backgroundColor: 'rgba(88, 101, 242, 0.1)'
+        }}>
           <button
             className="btn extract-btn"
             onClick={handleExtract}
+            style={{
+              background: 'linear-gradient(90deg, #5865f2, #3e4adf)',
+              padding: '18px',
+              fontSize: '1.15rem',
+              fontWeight: 'bold',
+              boxShadow: '0 6px 15px rgba(88, 101, 242, 0.5)',
+              position: 'relative',
+              overflow: 'hidden',
+              width: '100%',
+              border: 'none',
+              color: 'white',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}
           >
             <i className="fas fa-search"></i>
             Extrair Dados
