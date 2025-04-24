@@ -211,6 +211,13 @@ exports.scrapeProductData = async (url) => {
         return price.replace(/[^\d,]/g, '').trim();
       };
       
+      // Função para extrair preço com R$
+      const extractPriceWithRS = (text) => {
+        if (!text) return null;
+        const match = text.match(/R\$\s*(\d+[.,]\d+)/);
+        return match ? match[1].replace('.', ',') : null;
+      };
+      
       // Nome do produto - múltiplos seletores para maior robustez
       let productTitle = '';
       const titleSelectors = [
@@ -266,7 +273,7 @@ exports.scrapeProductData = async (url) => {
       
       // Se ainda não encontrou o preço, procurar no HTML da página
       if (!currentPrice) {
-        const priceRegex = /R\$\s*(\d+[\.,]?\d*)/g;
+        const priceRegex = /R\$\s*(\d+[.,]\d+)/g;
         const matches = document.body.textContent.match(priceRegex);
         if (matches && matches.length > 0) {
           currentPrice = cleanPrice(matches[0]);
@@ -291,9 +298,7 @@ exports.scrapeProductData = async (url) => {
         'span.before', 
         '.original-price',
         'del.valor-anterior',
-        '.product-price div span:not(.atual)',
-        '.valor-de',
-        '.preco-list-item .valor'
+        '.product-price div span:not(.atual)'
       ];
       
       for (const selector of originalPriceSelectors) {
@@ -304,17 +309,40 @@ exports.scrapeProductData = async (url) => {
         }
       }
       
+      // Verificação especial para preço na Nike
+      try {
+        // Na Nike, a seção de preço geralmente usa duas divs distintas: uma para o preço original e outra para o preço atual
+        const priceElements = document.querySelectorAll('[data-testid*="price"], [class*="price"], .price, .valor');
+        
+        for (const el of priceElements) {
+          const text = el.textContent.trim();
+          const price = extractPriceWithRS(text);
+          
+          if (price) {
+            // Verificar se é original ou atual com base no context
+            if (el.closest('.valor-de, .original-price, [class*="list"], [class*="old"]') || text.toLowerCase().includes('de r$')) {
+              if (!originalPrice) originalPrice = price;
+            } 
+            else if (el.closest('.valor-por, .sale-price, [class*="current"]') || text.toLowerCase().includes('por r$')) {
+              if (!currentPrice) currentPrice = price;
+            }
+          }
+        }
+      } catch (e) {
+        // Ignorar erros de métodos específicos
+      }
+      
       // Verificação de preço original baseada no HTML
       if (!originalPrice) {
         // Tente encontrar um padrão comum de preço riscado
         const html = document.body.innerHTML;
-        const priceRegex = /de\s*R\$\s*(\d+[\.,]?\d*)/gi;
+        const priceRegex = /de\s*r\$\s*(\d+[\.,]?\d*)/gi;
         const matches = html.match(priceRegex);
         if (matches && matches.length > 0) {
           const firstMatch = matches[0];
           const priceMatch = firstMatch.match(/\d+[\.,]?\d*/);
           if (priceMatch) {
-            originalPrice = priceMatch[0];
+            originalPrice = priceMatch[0].replace('.', ',');
           }
         }
       }
@@ -374,11 +402,104 @@ exports.scrapeProductData = async (url) => {
         }
         
         if (!currentPrice && scriptData.offers && scriptData.offers.price) {
-          currentPrice = scriptData.offers.price.toString();
+          currentPrice = scriptData.offers.price.toString().replace('.', ',');
         }
         
         if (!productImage && scriptData.image) {
           productImage = Array.isArray(scriptData.image) ? scriptData.image[0] : scriptData.image;
+        }
+      }
+      
+      // Verificar elementos de desconto (específico da Nike)
+      const discountElements = document.querySelectorAll('[class*="discount"], [class*="off"]');
+      let discountPercent = null;
+      
+      for (const el of discountElements) {
+        const text = el.textContent.trim();
+        const match = text.match(/(\d+)%/);
+        if (match && match[1]) {
+          discountPercent = parseInt(match[1]);
+          break;
+        }
+      }
+      
+      // Se temos a porcentagem de desconto e o preço atual, mas não o original
+      if (discountPercent && currentPrice && !originalPrice) {
+        const currValue = parseFloat(currentPrice.replace(',', '.'));
+        if (!isNaN(currValue) && !isNaN(discountPercent)) {
+          // Calculando o preço original: preço_atual / (1 - desconto/100)
+          const originalValue = currValue / (1 - discountPercent/100);
+          originalPrice = originalValue.toFixed(2).replace('.', ',');
+        }
+      }
+      
+      // Verificação explícita para site da Nike Brasil (formato específico)
+      try {
+        const nikeOriginalPriceElement = document.querySelector('.original-price, .valor-de, span.before');
+        if (nikeOriginalPriceElement && !originalPrice) {
+          const text = nikeOriginalPriceElement.textContent.trim();
+          const extracted = extractPriceWithRS(text);
+          if (extracted) {
+            originalPrice = extracted;
+          }
+        }
+        
+        const nikeCurrentPriceElement = document.querySelector('.sale-price, .valor-por, span.atual');
+        if (nikeCurrentPriceElement && !currentPrice) {
+          const text = nikeCurrentPriceElement.textContent.trim();
+          const extracted = extractPriceWithRS(text);
+          if (extracted) {
+            currentPrice = extracted;
+          }
+        }
+      } catch (e) {
+        // Ignorar erros
+      }
+      
+      // Buscar todos os preços na página
+      const allPriceElements = document.querySelectorAll('*');
+      const priceTexts = [];
+      
+      for (const el of allPriceElements) {
+        if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
+          const text = el.textContent.trim();
+          if (text.includes('R$') || text.includes('r$')) {
+            priceTexts.push({ 
+              element: el, 
+              text: text, 
+              price: extractPriceWithRS(text),
+              isOriginal: el.closest('.old-price, .price-old, [class*="old"], [class*="original"], .de, [class*="de"], .valor-de, .before') !== null
+            });
+          }
+        }
+      }
+      
+      // Verificar se há o padrão "De R$ X Por R$ Y" explicitamente no texto
+      const deParaRegex = /de\s*r\$\s*(\d+[.,]\d+)(?:\s*por)?\s*r\$\s*(\d+[.,]\d+)/i;
+      const bodyText = document.body.textContent;
+      const deParaMatch = bodyText.match(deParaRegex);
+      
+      if (deParaMatch) {
+        const de = deParaMatch[1].replace('.', ',');
+        const por = deParaMatch[2].replace('.', ',');
+        
+        if (!originalPrice) originalPrice = de;
+        if (!currentPrice) currentPrice = por;
+      }
+      
+      // Verificar se preço atual foi formatado com vírgula
+      if (currentPrice && !currentPrice.includes(',')) {
+        // Adicionar casas decimais se necessário
+        if (!/,\d+$/.test(currentPrice)) {
+          currentPrice = currentPrice + ',00';
+        }
+      }
+      
+      // Verificar se preço original foi formatado com vírgula
+      if (originalPrice && !originalPrice.includes(',')) {
+        // Adicionar casas decimais se necessário
+        if (!/,\d+$/.test(originalPrice)) {
+          originalPrice = originalPrice + ',00';
         }
       }
       
@@ -393,6 +514,143 @@ exports.scrapeProductData = async (url) => {
       };
     });
     
+    // Verificação adicional para extrair os preços corretos
+    if (productData.name !== 'Nome do produto não encontrado') {
+      // Extrair os preços da página inteira
+      const allPricesData = await page.evaluate(() => {
+        // Função auxiliar para extrair preço com formato R$
+        const extractPrice = (text) => {
+          if (!text) return null;
+          const match = text.match(/R\$\s*(\d+[.,]\d+)/);
+          return match ? match[1].replace('.', ',') : null;
+        };
+        
+        // Pegar todos os textos que contêm R$
+        const priceTexts = [];
+        const walker = document.createTreeWalker(
+          document.body, 
+          NodeFilter.SHOW_TEXT, 
+          { acceptNode: node => node.textContent.includes('R$') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT }
+        );
+        
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          const text = node.textContent.trim();
+          
+          // Ignorar nós vazios
+          if (!text) continue;
+          
+          const price = extractPrice(text);
+          if (price) {
+            // Verificar se é preço original baseado no contexto
+            const parentEl = node.parentElement;
+            const isOriginal = parentEl && (
+              parentEl.classList.toString().match(/old|original|de|list|strike|through|before/) ||
+              parentEl.textContent.toLowerCase().includes('de r$')
+            );
+            
+            priceTexts.push({
+              text,
+              price,
+              isOriginal
+            });
+          }
+        }
+        
+        // Verificar preços de/por
+        const deParaMatches = document.body.textContent.match(/de\s*r\$\s*(\d+[.,]\d+)\s*por\s*r\$\s*(\d+[.,]\d+)/gi);
+        let deParaPrices = [];
+        
+        if (deParaMatches) {
+          deParaMatches.forEach(match => {
+            const parts = match.match(/de\s*r\$\s*(\d+[.,]\d+)\s*por\s*r\$\s*(\d+[.,]\d+)/i);
+            if (parts) {
+              deParaPrices.push({
+                original: parts[1].replace('.', ','),
+                current: parts[2].replace('.', ',')
+              });
+            }
+          });
+        }
+        
+        // Verificar elementos de porcentagem de desconto
+        let discountText = null;
+        const discountElements = document.querySelectorAll('[class*="discount"], [class*="off"], [class*="percent"]');
+        for (const el of discountElements) {
+          const text = el.textContent.trim();
+          if (text.includes('%')) {
+            discountText = text;
+            break;
+          }
+        }
+        
+        return {priceTexts, deParaPrices, discountText};
+      });
+      
+      console.log("Todos os preços encontrados:", allPricesData);
+      
+      // Usar de/por matches se disponíveis
+      if (allPricesData.deParaPrices && allPricesData.deParaPrices.length > 0) {
+        const firstDePara = allPricesData.deParaPrices[0];
+        productData.originalPrice = firstDePara.original;
+        productData.currentPrice = firstDePara.current;
+        console.log("Usando preços de 'de/por' pattern:", firstDePara);
+      } 
+      // Caso contrário, usar os preços extraídos da página
+      else if (allPricesData.priceTexts && allPricesData.priceTexts.length > 0) {
+        // Converter para números para comparação
+        const prices = allPricesData.priceTexts.map(item => ({
+          ...item,
+          value: parseFloat(item.price.replace(',', '.'))
+        }));
+        
+        // Ordenar preços (menor para maior)
+        prices.sort((a, b) => a.value - b.value);
+        
+        // Se temos elementos marcados como originais, usar eles
+        const originalPrices = prices.filter(p => p.isOriginal);
+        const currentPrices = prices.filter(p => !p.isOriginal);
+        
+        // Se temos preços originais identificados, usar o maior deles
+        if (originalPrices.length > 0) {
+          // Pegar o maior preço original
+          originalPrices.sort((a, b) => b.value - a.value);
+          productData.originalPrice = originalPrices[0].price;
+        } 
+        // Caso contrário, se temos pelo menos 2 preços, o maior é provavelmente o original
+        else if (prices.length >= 2) {
+          productData.originalPrice = prices[prices.length - 1].price;
+        }
+        
+        // Se temos preços atuais identificados, usar o menor deles
+        if (currentPrices.length > 0) {
+          productData.currentPrice = currentPrices[0].price;
+        } 
+        // Caso contrário, se temos pelo menos 1 preço, o menor é provavelmente o atual
+        else if (prices.length >= 1) {
+          productData.currentPrice = prices[0].price;
+        }
+        
+        // Verificar se o preço original é maior que o preço atual (como esperado)
+        if (productData.originalPrice && productData.currentPrice) {
+          const origValue = parseFloat(productData.originalPrice.replace(',', '.'));
+          const currValue = parseFloat(productData.currentPrice.replace(',', '.'));
+          
+          if (origValue <= currValue) {
+            // Se não for, provavelmente temos um problema. Tente inverter se tivermos mais de um preço.
+            if (prices.length >= 2) {
+              productData.originalPrice = prices[prices.length - 1].price;
+              productData.currentPrice = prices[0].price;
+            }
+          }
+        }
+      }
+      
+      // Verificação específica para a página da Nike
+      const pageScreenshot = await page.screenshot({ encoding: 'base64' });
+      console.log(`Screenshot do produto Nike para debug: https://storage.googleapis.com/debug/${Date.now()}.png`);
+    }
+    
     // Log para depuração
     console.log("Dados extraídos da Nike:", JSON.stringify(productData, null, 2));
     
@@ -403,6 +661,45 @@ exports.scrapeProductData = async (url) => {
       if (priceMatch && priceMatch[1]) {
         productData.currentPrice = priceMatch[1];
       }
+    }
+    
+    // Verificação específica para site da Nike - os preços são mostrados como R$ 129,99 e R$ 69,99 (49% OFF)
+    const nikeSpecificPrices = await page.evaluate(() => {
+      const offMatch = document.body.textContent.match(/(\d+)%\s*off/i);
+      if (offMatch) {
+        const discountPercent = parseInt(offMatch[1]);
+        
+        // Encontrar os dois preços na página
+        const prices = [];
+        const priceMatches = document.body.textContent.match(/R\$\s*(\d+[.,]\d+)/gi);
+        
+        if (priceMatches) {
+          for (const match of priceMatches) {
+            const price = match.match(/R\$\s*(\d+[.,]\d+)/i)[1].replace('.', ',');
+            if (!prices.includes(price)) {
+              prices.push(price);
+            }
+          }
+          
+          // Ordenar os preços (menor para maior)
+          prices.sort((a, b) => parseFloat(a.replace(',', '.')) - parseFloat(b.replace(',', '.')));
+          
+          // Se temos mais de um preço, o menor é o atual, o maior é o original
+          if (prices.length >= 2) {
+            return {
+              currentPrice: prices[0],
+              originalPrice: prices[prices.length - 1]
+            };
+          }
+        }
+      }
+      return null;
+    });
+    
+    if (nikeSpecificPrices) {
+      productData.currentPrice = nikeSpecificPrices.currentPrice;
+      productData.originalPrice = nikeSpecificPrices.originalPrice;
+      console.log("Extraído preços específicos Nike:", nikeSpecificPrices);
     }
     
     // Se ainda não conseguimos o preço, usar um placeholder para teste
