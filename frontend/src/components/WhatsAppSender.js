@@ -7,27 +7,35 @@ const WhatsAppSender = ({ message, className }) => {
       return;
     }
 
-    // Garantir que as quebras de linha sejam preservadas
-    const formattedMessage = message.replace(/\n/g, '%0A');
-    const encodedMessage = encodeURIComponent(formattedMessage);
+    // Preparar a mensagem garantindo que as quebras de linha sejam preservadas
+    const messageText = message.replace(/\n/g, '\n'); // Garantir quebras de linha corretas
     
     // Verificar se é dispositivo móvel
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
     
     if (isMobile) {
-      // Em dispositivos móveis, SEMPRE tentar abrir diretamente o app primeiro
-      window.location.href = `whatsapp://send?text=${encodedMessage}`;
-      
-      // Como fallback, se após 1 segundo o usuário ainda estiver na página,
-      // redirecionar para o api.whatsapp.com que funciona melhor em iOS
-      setTimeout(() => {
-        if (document.hasFocus()) {
-          window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
-        }
-      }, 1000);
+      // Tentar método direto do WhatsApp
+      try {
+        // Em dispositivos Android, tentar abrir diretamente com whatsapp://
+        const androidIntent = `whatsapp://send?text=${encodeURIComponent(messageText)}`;
+        window.location.href = androidIntent;
+        
+        // Verificar após um tempo curto se ainda estamos na página
+        setTimeout(() => {
+          if (document.hasFocus()) {
+            // Fallback para iOS (usando link universal)
+            const universalLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
+            window.location.href = universalLink;
+          }
+        }, 500);
+      } catch (e) {
+        // Fallback se o método direto falhar
+        const universalLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
+        window.location.href = universalLink;
+      }
     } else {
       // Em desktop, abrir o WhatsApp Web
-      window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
+      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(messageText)}`, '_blank');
     }
   };
 
