@@ -5,10 +5,22 @@ const puppeteer = require('puppeteer');
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 exports.resolveUrl = async (shortenedUrl) => {
-  // Verifica se é um link do Mercado Livre no formato sec
+  // Verificar se é um link do Mercado Livre no formato sec
   if (shortenedUrl.includes('mercadolivre.com/sec/') || shortenedUrl.includes('mercadolibre.com/sec/')) {
     console.log(`Link do Mercado Livre detectado: ${shortenedUrl}`);
     return shortenedUrl; // Mantém o link original para links de afiliado do Mercado Livre
+  }
+  
+  // Verificar se é link de afiliado da Awin (Centauro/Nike)
+  if (shortenedUrl.includes('tidd.ly/3Ey3rLE') || shortenedUrl.includes('tidd.ly/4cvXuvd')) {
+    console.log(`Link de afiliado Awin detectado: ${shortenedUrl}`);
+    return shortenedUrl; // Mantém o link original para links de afiliado da Awin
+  }
+  
+  // Verificar se é link de afiliado da Rakuten (Netshoes)
+  if (shortenedUrl.includes('tiny.cc/ebah001')) {
+    console.log(`Link de afiliado Rakuten detectado: ${shortenedUrl}`);
+    return shortenedUrl; // Mantém o link original para links de afiliado da Rakuten
   }
   
   const browser = await puppeteer.launch({
@@ -121,6 +133,21 @@ exports.resolveUrl = async (shortenedUrl) => {
           return `https://mercadolivre.com/sec/${affiliateCode}`;
         }
       }
+    }
+    
+    // Para links da Centauro
+    if (resolvedUrl.includes('centauro.com.br')) {
+      return resolvedUrl;
+    }
+    
+    // Para links da Netshoes
+    if (resolvedUrl.includes('netshoes.com.br')) {
+      return resolvedUrl;
+    }
+    
+    // Para links da Nike
+    if (resolvedUrl.includes('nike.com.br') || resolvedUrl.includes('nike.com/br')) {
+      return resolvedUrl;
     }
     
     return resolvedUrl;

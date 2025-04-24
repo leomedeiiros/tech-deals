@@ -122,12 +122,33 @@ function App() {
       (data.vendor && data.vendor.toLowerCase().includes('amazon')) ||
       (data.platform && typeof data.platform === 'string' && 
        data.platform.toLowerCase().includes('amazon'));
+
+    const isCentauro = 
+      (url && url.includes('centauro.com.br')) ||
+      (data.vendor && data.vendor.toLowerCase().includes('centauro')) ||
+      (data.platform && typeof data.platform === 'string' && 
+       data.platform.toLowerCase().includes('centauro'));
+
+    const isNetshoes = 
+      (url && url.includes('netshoes.com.br')) ||
+      (data.vendor && data.vendor.toLowerCase().includes('netshoes')) ||
+      (data.platform && typeof data.platform === 'string' && 
+       data.platform.toLowerCase().includes('netshoes'));
+
+    const isNike = 
+      (url && (url.includes('nike.com.br') || url.includes('nike.com/br'))) ||
+      (data.vendor && data.vendor.toLowerCase().includes('nike')) ||
+      (data.platform && typeof data.platform === 'string' && 
+       data.platform.toLowerCase().includes('nike'));
       
     // DEFINIR TIPO DE LOJA PADRÃO
     if (isAmazon) {
       setStoreType('amazon');
     } else if (isMercadoLivre) {
       // Para o Mercado Livre, definir SEMPRE como "loja_oficial" por padrão
+      setStoreType('loja_oficial');
+    } else if (isCentauro || isNetshoes || isNike) {
+      // Para lojas esportivas, definir como "loja_oficial" por padrão
       setStoreType('loja_oficial');
     } else {
       setStoreType('loja_validada');

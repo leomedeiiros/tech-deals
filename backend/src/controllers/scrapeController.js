@@ -1,6 +1,9 @@
 // backend/src/controllers/scrapeController.js
 const amazonScraper = require('../services/amazonScraper');
 const mercadoLivreScraper = require('../services/mercadoLivreScraper');
+const centauroScraper = require('../services/centauroScraper');
+const netshoesScraper = require('../services/netshoesScraper');
+const nikeScraper = require('../services/nikeScraper');
 const linkResolver = require('../utils/linkResolver');
 const whatsappService = require('../services/whatsappService');
 
@@ -14,8 +17,16 @@ exports.scrapeProduct = async (req, res) => {
 
     console.log(`Iniciando scraping para URL: ${url}`);
     
+    // Verificar se é link de afiliado do Mercado Livre
     const isMercadoLivreAffiliate = url.includes('mercadolivre.com/sec/') || url.includes('mercadolibre.com/sec/');
     
+    // Verificar se é link da Awin (Centauro/Nike)
+    const isAwinAffiliate = url.includes('tidd.ly/');
+    
+    // Verificar se é link da Rakuten (Netshoes)
+    const isRakutenAffiliate = url.includes('tiny.cc/');
+    
+    // Verificar se os links de afiliados podem ser passados diretamente para os scrapers específicos
     if (isMercadoLivreAffiliate) {
       console.log('Link de afiliado do Mercado Livre detectado. Usando scraper direto.');
       const productData = await mercadoLivreScraper.scrapeProductData(url);
@@ -24,6 +35,31 @@ exports.scrapeProduct = async (req, res) => {
       return res.json(productData);
     }
     
+    if (isAwinAffiliate && url.includes('3Ey3rLE')) {
+      console.log('Link de afiliado da Centauro detectado. Usando scraper direto.');
+      const productData = await centauroScraper.scrapeProductData(url);
+      productData.productUrl = url;
+      console.log('Dados do produto extraídos com sucesso:', productData);
+      return res.json(productData);
+    }
+    
+    if (isAwinAffiliate && url.includes('4cvXuvd')) {
+      console.log('Link de afiliado da Nike detectado. Usando scraper direto.');
+      const productData = await nikeScraper.scrapeProductData(url);
+      productData.productUrl = url;
+      console.log('Dados do produto extraídos com sucesso:', productData);
+      return res.json(productData);
+    }
+    
+    if (isRakutenAffiliate && url.includes('ebah001')) {
+      console.log('Link de afiliado da Netshoes detectado. Usando scraper direto.');
+      const productData = await netshoesScraper.scrapeProductData(url);
+      productData.productUrl = url;
+      console.log('Dados do produto extraídos com sucesso:', productData);
+      return res.json(productData);
+    }
+    
+    // Para outros links, resolver URL e determinar qual scraper usar
     const resolvedUrl = await linkResolver.resolveUrl(url);
     console.log(`URL resolvida: ${resolvedUrl}`);
     
@@ -38,8 +74,24 @@ exports.scrapeProduct = async (req, res) => {
     ) {
       console.log('Usando Mercado Livre Scraper');
       productData = await mercadoLivreScraper.scrapeProductData(resolvedUrl);
+    } else if (
+      resolvedUrl.includes('centauro.com.br')
+    ) {
+      console.log('Usando Centauro Scraper');
+      productData = await centauroScraper.scrapeProductData(resolvedUrl);
+    } else if (
+      resolvedUrl.includes('netshoes.com.br')
+    ) {
+      console.log('Usando Netshoes Scraper');
+      productData = await netshoesScraper.scrapeProductData(resolvedUrl);
+    } else if (
+      resolvedUrl.includes('nike.com.br') || 
+      resolvedUrl.includes('nike.com/br')
+    ) {
+      console.log('Usando Nike Scraper');
+      productData = await nikeScraper.scrapeProductData(resolvedUrl);
     } else {
-      return res.status(400).json({ error: 'URL não suportada. Apenas Amazon e Mercado Livre são suportados.' });
+      return res.status(400).json({ error: 'URL não suportada. Apenas Amazon, Mercado Livre, Centauro, Netshoes e Nike são suportados.' });
     }
     
     productData.productUrl = url;
