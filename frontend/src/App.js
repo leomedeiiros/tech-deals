@@ -188,7 +188,12 @@ function App() {
     return price;
   };
   
-  const toggleSection = (section) => {
+  const toggleSection = (section, e) => {
+    // Prevenir propagação do evento para evitar que o clique chegue ao elemento pai
+    if (e) {
+      e.stopPropagation();
+    }
+    
     switch(section) {
       case 'info':
         setInfoSectionOpen(!infoSectionOpen);
@@ -352,13 +357,16 @@ function App() {
     }
 
     // Obter a mensagem atual (possivelmente editada)
-    const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
+    let messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
+    
+    // Garantir que as quebras de linha sejam preservadas
+    messageToShare = messageToShare.replace(/\n/g, '%0A');
 
     // Verificar se o navegador suporta Web Share API com arquivos
     if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
       try {
         await navigator.share({
-          text: messageToShare,
+          text: messageToShare.replace(/%0A/g, '\n'), // Reverter para quebras de linha normais
           files: [imageFile]
         });
         return; // Se compartilhou com sucesso, encerra a função
@@ -421,7 +429,8 @@ function App() {
 
   // Função para extrair dados do produto
   const handleExtract = async () => {
-    if (!document.querySelector('input[type="url"]').value) {
+    const inputEl = document.querySelector('input[type="url"]');
+    if (!inputEl || !inputEl.value) {
       setError('Por favor, insira um link de afiliado.');
       return;
     }
@@ -432,11 +441,11 @@ function App() {
       
       // URL correta do backend no Render
       const response = await axios.post(`${API_BASE_URL}/api/scrape`, { 
-        url: document.querySelector('input[type="url"]').value 
+        url: inputEl.value 
       });
       
       // Passar os dados do produto e a URL usada para processamento
-      handleProductDataReceived(response.data, document.querySelector('input[type="url"]').value);
+      handleProductDataReceived(response.data, inputEl.value);
     } catch (error) {
       console.error('Erro ao obter dados do produto:', error);
       setError(
@@ -467,88 +476,92 @@ function App() {
             <i className="fas fa-link"></i>
             Informações da Promoção
           </div>
-          <i className={`fas fa-chevron-down chevron-icon ${infoSectionOpen ? 'open' : ''}`}></i>
+          <div className="chevron-container" onClick={(e) => toggleSection('info', e)}>
+            <i className={`fas fa-chevron-down chevron-icon ${infoSectionOpen ? 'open' : ''}`}></i>
+          </div>
         </div>
         
-        <div className={`section-content ${infoSectionOpen ? 'open' : ''}`}>
-          <div className="form-group">
-            <label className="form-label">Link da promoção</label>
-            <div className="input-clear-wrapper">
-              <input
-                type="url"
-                className="form-input"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="Cole o link da Amazon ou Mercado Livre"
-                list="url-history"
-              />
-              {recentLinks && recentLinks.length > 0 && (
-                <datalist id="url-history">
-                  {recentLinks.map((link, index) => (
-                    <option key={index} value={link} />
-                  ))}
-                </datalist>
-              )}
-              {url && (
-                <button 
-                  className="clear-input-btn" 
-                  onClick={() => setUrl('')}
-                  type="button"
-                >
-                  <i className="fas fa-times"></i>
-                </button>
-              )}
-            </div>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
-            {renderInputWithClear(
-              couponCode, 
-              handleCouponChange, 
-              "Insira um cupom de desconto", 
-              "text", 
-              "coupon-history", 
-              recentCoupons
-            )}
-          </div>
-          
-          <div className="discount-fields-grid">
+        {infoSectionOpen && (
+          <div className="section-content">
             <div className="form-group">
-              <label className="form-label">
-                <i className="fas fa-percent"></i> Desconto % <span className="optional-tag">Opcional</span>
-              </label>
-              {renderInputWithClear(
-                discountPercentage, 
-                handleDiscountChange, 
-                "Ex: 20 (sem o símbolo %)", 
-                "number", 
-                "discount-history", 
-                recentDiscounts
-              )}
+              <label className="form-label">Link da promoção</label>
+              <div className="input-clear-wrapper">
+                <input
+                  type="url"
+                  className="form-input"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="Cole o link da Amazon ou Mercado Livre"
+                  list="url-history"
+                />
+                {recentLinks && recentLinks.length > 0 && (
+                  <datalist id="url-history">
+                    {recentLinks.map((link, index) => (
+                      <option key={index} value={link} />
+                    ))}
+                  </datalist>
+                )}
+                {url && (
+                  <button 
+                    className="clear-input-btn" 
+                    onClick={() => setUrl('')}
+                    type="button"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className="form-group">
-              <label className="form-label">
-                <i className="fas fa-dollar-sign"></i> Desconto em R$ <span className="optional-tag">Opcional</span>
-              </label>
+              <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
               {renderInputWithClear(
-                discountValue, 
-                handleDiscountValueChange, 
-                "Ex: 50", 
-                "number", 
-                "discount-value-history", 
-                recentDiscountValues
+                couponCode, 
+                handleCouponChange, 
+                "Insira um cupom de desconto", 
+                "text", 
+                "coupon-history", 
+                recentCoupons
               )}
             </div>
-          </div>
-          
-          {(discountPercentage && discountValue) && (
-            <div className="discount-warning">
-              <i className="fas fa-exclamation-triangle"></i> Atenção: Use apenas um tipo de desconto por vez.
+            
+            <div className="discount-fields-grid">
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="fas fa-percent"></i> Desconto % <span className="optional-tag">Opcional</span>
+                </label>
+                {renderInputWithClear(
+                  discountPercentage, 
+                  handleDiscountChange, 
+                  "Ex: 20 (sem o símbolo %)", 
+                  "number", 
+                  "discount-history", 
+                  recentDiscounts
+                )}
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="fas fa-dollar-sign"></i> Desconto em R$ <span className="optional-tag">Opcional</span>
+                </label>
+                {renderInputWithClear(
+                  discountValue, 
+                  handleDiscountValueChange, 
+                  "Ex: 50", 
+                  "number", 
+                  "discount-value-history", 
+                  recentDiscountValues
+                )}
+              </div>
             </div>
-          )}
-        </div>
+            
+            {(discountPercentage && discountValue) && (
+              <div className="discount-warning">
+                <i className="fas fa-exclamation-triangle"></i> Atenção: Use apenas um tipo de desconto por vez.
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Seção de Tipo de Loja */}
         <div className="section-header" onClick={() => toggleSection('store')}>
@@ -556,50 +569,54 @@ function App() {
             <i className="fas fa-store"></i>
             Tipo de Loja
           </div>
-          <i className={`fas fa-chevron-down chevron-icon ${storeSectionOpen ? 'open' : ''}`}></i>
+          <div className="chevron-container" onClick={(e) => toggleSection('store', e)}>
+            <i className={`fas fa-chevron-down chevron-icon ${storeSectionOpen ? 'open' : ''}`}></i>
+          </div>
         </div>
         
-        <div className={`section-content ${storeSectionOpen ? 'open' : ''}`}>
-          <div className="store-type-group">
-            <button 
-              className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
-              onClick={() => setStoreType('amazon')}
-            >
-              <i className="fab fa-amazon"></i> Amazon
-            </button>
-            <button 
-              className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
-              onClick={() => setStoreType('loja_oficial')}
-            >
-              <i className="fas fa-check-circle"></i> Loja Oficial
-            </button>
-            <button 
-              className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
-              onClick={() => setStoreType('catalogo')}
-            >
-              <i className="fas fa-list"></i> Catálogo
-            </button>
-            <button 
-              className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
-              onClick={() => setStoreType('loja_validada')}
-            >
-              <i className="fas fa-shield-alt"></i> Loja validada
-            </button>
-            <button 
-              className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
-              onClick={() => setStoreType('')}
-            >
-              <i className="fas fa-times"></i> Nenhum
-            </button>
-          </div>
-          
-          {storeType === 'catalogo' && (
-            <div className="form-group" style={{ marginTop: '10px' }}>
-              <label className="form-label">Nome do Vendedor:</label>
-              {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
+        {storeSectionOpen && (
+          <div className="section-content">
+            <div className="store-type-group">
+              <button 
+                className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
+                onClick={() => setStoreType('amazon')}
+              >
+                <i className="fab fa-amazon"></i> Amazon
+              </button>
+              <button 
+                className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
+                onClick={() => setStoreType('loja_oficial')}
+              >
+                <i className="fas fa-check-circle"></i> Loja Oficial
+              </button>
+              <button 
+                className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
+                onClick={() => setStoreType('catalogo')}
+              >
+                <i className="fas fa-list"></i> Catálogo
+              </button>
+              <button 
+                className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
+                onClick={() => setStoreType('loja_validada')}
+              >
+                <i className="fas fa-shield-alt"></i> Loja validada
+              </button>
+              <button 
+                className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
+                onClick={() => setStoreType('')}
+              >
+                <i className="fas fa-times"></i> Nenhum
+              </button>
             </div>
-          )}
-        </div>
+            
+            {storeType === 'catalogo' && (
+              <div className="form-group" style={{ marginTop: '10px' }}>
+                <label className="form-label">Nome do Vendedor:</label>
+                {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Nova Seção: Imagem Personalizada */}
         <div className="section-header" onClick={() => toggleSection('image')}>
@@ -608,50 +625,54 @@ function App() {
             Imagem Personalizada
             <span className="optional-tag">Opcional</span>
           </div>
-          <i className={`fas fa-chevron-down chevron-icon ${imageSectionOpen ? 'open' : ''}`}></i>
-        </div>
-        
-        <div className={`section-content ${imageSectionOpen ? 'open' : ''}`}>
-          <div className="form-group">
-            <label className="form-label">Upload de imagem</label>
-            <p className="form-description">
-              Carregue uma imagem personalizada para sua promoção. 
-              Se não for fornecida, será usada a imagem do produto.
-            </p>
-            <div className="web-share-info">
-              <p className="web-share-info-text">
-                <i className="fas fa-info-circle"></i> Em dispositivos móveis compatíveis, a imagem será anexada junto com a mensagem.
-              </p>
-            </div>
-            
-            <div className="file-upload-container">
-              <input 
-                type="file" 
-                accept="image/jpeg,image/png,image/gif,image/jpg" 
-                onChange={handleImageUpload}
-                id="image-upload"
-                className="file-input"
-                disabled={uploadingImage}
-              />
-            </div>
-            
-            {uploadingImage && (
-              <div className="upload-status">
-                <div className="loading"></div>
-                <span>Enviando imagem...</span>
-              </div>
-            )}
-            
-            {customImage && (
-              <div className="custom-image-preview">
-                <img src={customImage} alt="Imagem personalizada" className="uploaded-image" />
-                <button onClick={removeCustomImage} className="btn-sm btn-danger">
-                  <i className="fas fa-trash-alt"></i> Remover
-                </button>
-              </div>
-            )}
+          <div className="chevron-container" onClick={(e) => toggleSection('image', e)}>
+            <i className={`fas fa-chevron-down chevron-icon ${imageSectionOpen ? 'open' : ''}`}></i>
           </div>
         </div>
+        
+        {imageSectionOpen && (
+          <div className="section-content">
+            <div className="form-group">
+              <label className="form-label">Upload de imagem</label>
+              <p className="form-description">
+                Carregue uma imagem personalizada para sua promoção. 
+                Se não for fornecida, será usada a imagem do produto.
+              </p>
+              <div className="web-share-info">
+                <p className="web-share-info-text">
+                  <i className="fas fa-info-circle"></i> Em dispositivos móveis compatíveis, a imagem será anexada junto com a mensagem.
+                </p>
+              </div>
+              
+              <div className="file-upload-container">
+                <input 
+                  type="file" 
+                  accept="image/jpeg,image/png,image/gif,image/jpg" 
+                  onChange={handleImageUpload}
+                  id="image-upload"
+                  className="file-input"
+                  disabled={uploadingImage}
+                />
+              </div>
+              
+              {uploadingImage && (
+                <div className="upload-status">
+                  <div className="loading"></div>
+                  <span>Enviando imagem...</span>
+                </div>
+              )}
+              
+              {customImage && (
+                <div className="custom-image-preview">
+                  <img src={customImage} alt="Imagem personalizada" className="uploaded-image" />
+                  <button onClick={removeCustomImage} className="btn-sm btn-danger">
+                    <i className="fas fa-trash-alt"></i> Remover
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Botão Extrair Dados - Com destaque especial para garantir visibilidade */}
         <div style={{ 
@@ -662,8 +683,9 @@ function App() {
           <button
             className="btn extract-btn"
             onClick={handleExtract}
+            disabled={loading}
             style={{
-              background: 'linear-gradient(90deg, #5865f2, #3e4adf)',
+              background: loading ? '#3e4adf' : 'linear-gradient(90deg, #5865f2, #3e4adf)',
               padding: '18px',
               fontSize: '1.15rem',
               fontWeight: 'bold',
@@ -674,7 +696,7 @@ function App() {
               border: 'none',
               color: 'white',
               borderRadius: '12px',
-              cursor: 'pointer',
+              cursor: loading ? 'default' : 'pointer',
               transition: 'all 0.3s ease',
               display: 'flex',
               alignItems: 'center',
@@ -682,8 +704,17 @@ function App() {
               gap: '10px'
             }}
           >
-            <i className="fas fa-search"></i>
-            Extrair Dados
+            {loading ? (
+              <>
+                <div className="loading"></div>
+                Extraindo dados...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-search"></i>
+                Extrair Dados
+              </>
+            )}
           </button>
           {error && <div className="error-message">{error}</div>}
         </div>
@@ -757,7 +788,7 @@ function App() {
         ) : null}
       </div>
       
-      <div className="watermark">
+      <div className="watermark" style={{ textAlign: 'center', margin: '20px 0', color: 'var(--text-secondary)' }}>
         GeraPromo &copy; 2025 - Todos os direitos reservados
       </div>
     </div>

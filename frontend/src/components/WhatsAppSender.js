@@ -7,7 +7,9 @@ const WhatsAppSender = ({ message, className }) => {
       return;
     }
 
-    const encodedMessage = encodeURIComponent(message);
+    // Garantir que as quebras de linha sejam preservadas
+    const formattedMessage = message.replace(/\n/g, '%0A');
+    const encodedMessage = encodeURIComponent(formattedMessage);
     
     // Verificar se é dispositivo móvel
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);

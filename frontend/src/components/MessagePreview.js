@@ -239,6 +239,7 @@ const MessagePreview = ({
     }
   }, [productData, couponCode, storeType, vendorName, discountPercentage, discountValue]);
   
+  // Retornar a mensagem
   return generateMessage();
 };
 

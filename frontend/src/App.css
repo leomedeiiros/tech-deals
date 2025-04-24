@@ -122,6 +122,19 @@ body {
   margin-left: 8px;
 }
 
+.chevron-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+.chevron-container:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 .chevron-icon {
   font-size: 1.1rem;
   transition: transform 0.2s ease;
@@ -434,7 +447,7 @@ body {
   background-color: var(--input-bg);
   border-radius: var(--border-radius);
   padding: 15px;
-  white-space: pre-line;
+  white-space: pre-wrap;
   font-size: 0.9rem;
   color: var(--text-color);
   text-align: left;
@@ -599,4 +612,24 @@ body {
   .preview-image {
     max-height: 200px;
   }
+}
+
+/* Adicionar animação para botão de copiar */
+@keyframes successPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.success-animation {
+  animation: successPulse 0.5s ease-in-out;
+  background-color: #059669;
+}
+
+/* Novo estilo para watermark centralizado */
+.watermark {
+  text-align: center;
+  margin: 20px 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
