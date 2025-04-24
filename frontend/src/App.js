@@ -345,59 +345,53 @@ function App() {
   };
   
   // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
-  const shareWhatsApp = async () => {
-    if (!finalMessage) {
-      setError('Nenhuma mensagem para compartilhar.');
-      return;
-    }
-    
-    // Se estamos em modo de edição, desabilite primeiro para garantir que o conteúdo foi salvo
-    if (isEditing) {
-      disableEditing();
-    }
+const shareWhatsApp = async () => {
+  if (!finalMessage) {
+    setError('Nenhuma mensagem para compartilhar.');
+    return;
+  }
+  
+  // Se estamos em modo de edição, desabilite primeiro para garantir que o conteúdo foi salvo
+  if (isEditing) {
+    disableEditing();
+  }
 
-    // Obter a mensagem atual (possivelmente editada)
-    let messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
-    
-    // Garantir que as quebras de linha sejam preservadas
-    messageToShare = messageToShare.replace(/\n/g, '%0A');
-
-    // Verificar se o navegador suporta Web Share API com arquivos
-    if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-      try {
-        await navigator.share({
-          text: messageToShare.replace(/%0A/g, '\n'), // Reverter para quebras de linha normais
-          files: [imageFile]
-        });
-        return; // Se compartilhou com sucesso, encerra a função
-      } catch (err) {
-        console.warn('Compartilhamento com arquivo falhou:', err);
-        // Continua para o fallback abaixo
-      }
+  // Obter a mensagem atual (possivelmente editada)
+  const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
+  
+  // Verificar se o navegador suporta Web Share API com arquivos
+  if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+    try {
+      await navigator.share({
+        text: messageToShare,
+        files: [imageFile]
+      });
+      return; // Se compartilhou com sucesso, encerra a função
+    } catch (err) {
+      console.warn('Compartilhamento com arquivo falhou:', err);
+      // Continua para o fallback abaixo
     }
-    
-    // Fallback para o método tradicional (apenas texto)
+  }
+  
+  // Verificar se é dispositivo móvel
+  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // Abordagem direta com número de telefone (funciona melhor em iOS e Android)
     const encodedMessage = encodeURIComponent(messageToShare);
+    window.location.href = `whatsapp://send?phone=&text=${encodedMessage}`;
     
-    // Verificar se é dispositivo móvel
-    const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      // Em dispositivos móveis, tentar abrir diretamente o app
-      window.location.href = `whatsapp://send?text=${encodedMessage}`;
-      
-      // Como fallback, se após 1 segundo o usuário ainda estiver na página,
-      // redirecionar para o api.whatsapp.com que funciona melhor em iOS
-      setTimeout(() => {
-        if (document.hasFocus()) {
-          window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
-        }
-      }, 1000);
-    } else {
-      // Em desktop, abrir o WhatsApp Web
-      window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
-    }
-  };
+    // Se após 500ms ainda estamos na página, tentar API alternativa
+    setTimeout(() => {
+      if (document.hasFocus()) {
+        window.location.href = `https://wa.me/?text=${encodedMessage}`;
+      }
+    }, 500);
+  } else {
+    // Em desktop, abrir o WhatsApp Web
+    window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(messageToShare)}`, '_blank');
+  }
+};
   
   // Copiar mensagem para o clipboard
   const copyMessage = () => {
