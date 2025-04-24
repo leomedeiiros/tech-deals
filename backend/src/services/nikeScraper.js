@@ -197,6 +197,17 @@ exports.scrapeProductData = async (url) => {
       // Função para limpar texto de preço
       const cleanPrice = (price) => {
         if (!price) return '';
+        
+        // Verificar se temos múltiplos preços concatenados
+        if (price.length > 10) {
+          // Se houver mais de 10 caracteres, provavelmente temos preços concatenados
+          // Pegar apenas o primeiro preço
+          const matches = price.match(/(\d+,\d+)/);
+          if (matches && matches[1]) {
+            return matches[1];
+          }
+        }
+        
         return price.replace(/[^\d,]/g, '').trim();
       };
       
@@ -236,7 +247,13 @@ exports.scrapeProductData = async (url) => {
         'div[class*="price"] span',
         '.product-info-price span',
         'span[class*="current-price"]',
-        'span[class*="sales-price"]'
+        'span[class*="sales-price"]',
+        // Seletores específicos Nike Brasil
+        '.valor-por',
+        'span.atual',
+        '.product-info-price .valor',
+        '.elemento_preco .valor-por',
+        '.price .sale'
       ];
       
       for (const selector of priceSelectors) {
@@ -268,7 +285,15 @@ exports.scrapeProductData = async (url) => {
         'div[class*="list-price"]',
         'div[class*="previous-price"]',
         'del[class*="price"]',
-        'span[class*="old-price"]'
+        'span[class*="old-price"]',
+        // Novos seletores específicos para Nike Brasil
+        'div.priceBefore',
+        'span.before', 
+        '.original-price',
+        'del.valor-anterior',
+        '.product-price div span:not(.atual)',
+        '.valor-de',
+        '.preco-list-item .valor'
       ];
       
       for (const selector of originalPriceSelectors) {
@@ -276,6 +301,21 @@ exports.scrapeProductData = async (url) => {
         if (element && element.textContent.trim()) {
           originalPrice = cleanPrice(element.textContent);
           if (originalPrice) break;
+        }
+      }
+      
+      // Verificação de preço original baseada no HTML
+      if (!originalPrice) {
+        // Tente encontrar um padrão comum de preço riscado
+        const html = document.body.innerHTML;
+        const priceRegex = /de\s*R\$\s*(\d+[\.,]?\d*)/gi;
+        const matches = html.match(priceRegex);
+        if (matches && matches.length > 0) {
+          const firstMatch = matches[0];
+          const priceMatch = firstMatch.match(/\d+[\.,]?\d*/);
+          if (priceMatch) {
+            originalPrice = priceMatch[0];
+          }
         }
       }
       
@@ -291,7 +331,11 @@ exports.scrapeProductData = async (url) => {
         'img[data-test*="product-image"]',
         'div[class*="pdp-image"] img',
         'div[class*="image-grid"] img',
-        'picture img'
+        'picture img',
+        // Seletores específicos Nike Brasil
+        '.foto-produto-detalhe img',
+        '.showcase-product img',
+        '.product-img img'
       ];
       
       for (const selector of imageSelectors) {
@@ -352,6 +396,15 @@ exports.scrapeProductData = async (url) => {
     // Log para depuração
     console.log("Dados extraídos da Nike:", JSON.stringify(productData, null, 2));
     
+    // Pós-processamento para corrigir formatos de preço
+    if (productData.currentPrice && productData.currentPrice.length > 10) {
+      // Tentar extrair o primeiro número da string
+      const priceMatch = productData.currentPrice.match(/(\d+,\d+)/);
+      if (priceMatch && priceMatch[1]) {
+        productData.currentPrice = priceMatch[1];
+      }
+    }
+    
     // Se ainda não conseguimos o preço, usar um placeholder para teste
     if (!productData.currentPrice || productData.currentPrice === 'Preço não disponível') {
       // Com base no nome do produto, determinar um preço fictício razoável
@@ -388,7 +441,7 @@ exports.scrapeProductData = async (url) => {
       name: "Tênis Nike Performance (Placeholder)",
       currentPrice: "499",
       originalPrice: "799",
-      imageUrl: "https://imgnike-a.akamaihd.net/768x768/0206320L.jpg",
+      imageUrl: "https://imgnike-a.akamaihd.net/1300x1300/024817IDA4.jpg",
       vendor: "Nike",
       platform: "nike",
       productUrl: url,

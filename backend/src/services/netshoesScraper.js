@@ -207,6 +207,17 @@ exports.scrapeProductData = async (url) => {
       // Função para limpar texto de preço
       const cleanPrice = (price) => {
         if (!price) return '';
+        
+        // Verificar se temos múltiplos preços concatenados
+        if (price.length > 10) {
+          // Se houver mais de 10 caracteres, provavelmente temos preços concatenados
+          // Pegar apenas o primeiro preço
+          const matches = price.match(/(\d+,\d+)/);
+          if (matches && matches[1]) {
+            return matches[1];
+          }
+        }
+        
         return price.replace(/[^\d,]/g, '').trim();
       };
       
@@ -268,6 +279,14 @@ exports.scrapeProductData = async (url) => {
         }
       }
       
+      // Limpar o preço se ainda estiver concatenado
+      if (currentPrice && currentPrice.length > 10) {
+        const priceMatch = currentPrice.match(/(\d+,\d+)/);
+        if (priceMatch && priceMatch[1]) {
+          currentPrice = priceMatch[1];
+        }
+      }
+      
       // Preço original (riscado)
       let originalPrice = '';
       const originalPriceSelectors = [
@@ -289,6 +308,15 @@ exports.scrapeProductData = async (url) => {
         if (element && element.textContent.trim()) {
           originalPrice = cleanPrice(element.textContent);
           if (originalPrice) break;
+        }
+      }
+      
+      // Buscar por preço original no texto da página
+      if (!originalPrice) {
+        const deRegex = /de\s*R\$\s*(\d+[\.,]?\d*)/i;
+        const deMatches = document.body.textContent.match(deRegex);
+        if (deMatches && deMatches[1]) {
+          originalPrice = deMatches[1].trim();
         }
       }
       
@@ -370,8 +398,8 @@ exports.scrapeProductData = async (url) => {
     console.log("Dados extraídos da Netshoes:", JSON.stringify(productData, null, 2));
     
     // Se ainda não conseguiu obter o preço, tentar uma abordagem alternativa
-    if (!productData.currentPrice || productData.currentPrice === 'Preço não disponível') {
-      console.log("Preço não encontrado com abordagem padrão. Tentando método alternativo...");
+    if (!productData.currentPrice || productData.currentPrice === 'Preço não disponível' || productData.currentPrice.length > 10) {
+      console.log("Preço não encontrado ou incorreto. Tentando método alternativo...");
       
       // Tentar API alternativa
       if (productCode) {
@@ -381,27 +409,45 @@ exports.scrapeProductData = async (url) => {
           await page.goto(productApiUrl, { waitUntil: 'networkidle2', timeout: 60000 });
           await wait(3000);
           
-          // Tentar extrair dados novamente
+          // Tentar extrair dados novamente com foco apenas nos preços
           const alternativeData = await page.evaluate(() => {
             const cleanPrice = (price) => {
               if (!price) return '';
+              // Limpar preço e se for muito longo, pegar só o primeiro
+              if (price.length > 10) {
+                const matches = price.match(/(\d+,\d+)/);
+                if (matches && matches[1]) {
+                  return matches[1];
+                }
+              }
               return price.replace(/[^\d,]/g, '').trim();
             };
-            
-            // Tudo em uma única função para aumentar chances de sucesso
-            const productInfo = {};
             
             // Procurar preço no conteúdo da página
             const priceRegex = /R\$\s*(\d+[\.,]?\d*)/g;
             const priceMatches = document.body.textContent.match(priceRegex);
+            
+            const productInfo = {};
+            
             if (priceMatches && priceMatches.length > 0) {
-              productInfo.currentPrice = cleanPrice(priceMatches[0]);
+              // Limpar cada preço encontrado
+              const prices = priceMatches.map(price => cleanPrice(price));
               
-              // Se há mais de um preço, o segundo pode ser o original
-              if (priceMatches.length > 1) {
-                const secondPrice = cleanPrice(priceMatches[1]);
-                if (secondPrice !== productInfo.currentPrice) {
-                  productInfo.originalPrice = secondPrice;
+              // Obter preços únicos (pode haver duplicatas)
+              const uniquePrices = [...new Set(prices)].filter(p => p);
+              
+              if (uniquePrices.length > 0) {
+                // Ordenar preços (do menor para o maior)
+                uniquePrices.sort((a, b) => {
+                  return parseFloat(a.replace(',', '.')) - parseFloat(b.replace(',', '.'));
+                });
+                
+                // O menor preço é provavelmente o atual, o maior o original
+                if (uniquePrices.length === 1) {
+                  productInfo.currentPrice = uniquePrices[0];
+                } else if (uniquePrices.length >= 2) {
+                  productInfo.currentPrice = uniquePrices[0];
+                  productInfo.originalPrice = uniquePrices[uniquePrices.length - 1];
                 }
               }
             }
@@ -422,12 +468,66 @@ exports.scrapeProductData = async (url) => {
           console.log("Erro ao tentar método alternativo:", apiError.message);
         }
       }
+      
+      // Segunda tentativa usando outra estratégia
+      if ((!productData.currentPrice || productData.currentPrice === 'Preço não disponível' || productData.currentPrice.length > 10)) {
+        try {
+          // Extrair apenas textos de preço da página
+          const rawPrices = await page.evaluate(() => {
+            const priceTexts = [];
+            // Selecionar todos os elementos com texto que pode conter preço
+            const elements = document.querySelectorAll('*');
+            for (const el of elements) {
+              if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
+                const text = el.textContent.trim();
+                if (text.includes('R$') && text.match(/\d+/)) {
+                  priceTexts.push(text);
+                }
+              }
+            }
+            return priceTexts;
+          });
+          
+          console.log("Textos brutos de preço encontrados:", rawPrices);
+          
+          // Processar os preços
+          if (rawPrices.length > 0) {
+            // Função para limpar e extrair o valor numérico do preço
+            const extractPrice = (text) => {
+              const matches = text.match(/R\$\s*(\d+[.,]?\d*)/);
+              if (matches && matches[1]) {
+                return matches[1].replace('.', ',');
+              }
+              return null;
+            };
+            
+            // Extrair valores numéricos
+            const prices = rawPrices
+              .map(extractPrice)
+              .filter(p => p)
+              .sort((a, b) => {
+                return parseFloat(a.replace(',', '.')) - parseFloat(b.replace(',', '.'));
+              });
+            
+            console.log("Preços numericos extraídos:", prices);
+            
+            if (prices.length > 0) {
+              productData.currentPrice = prices[0];
+              if (prices.length > 1) {
+                productData.originalPrice = prices[prices.length - 1];
+              }
+            }
+          }
+        } catch (extractError) {
+          console.log("Erro ao extrair preços da página:", extractError.message);
+        }
+      }
     }
     
     // Se ainda não conseguimos o preço, usar um placeholder para teste
-    if (!productData.currentPrice || productData.currentPrice === 'Preço não disponível') {
+    if (!productData.currentPrice || productData.currentPrice === 'Preço não disponível' || productData.currentPrice.length > 10) {
       // Com base no nome do produto, determinar um preço fictício razoável
-      let placeholderPrice = "399";
+      let placeholderPrice = "349";
       let placeholderOriginalPrice = "599";
       
       // Se o nome contém palavras-chave

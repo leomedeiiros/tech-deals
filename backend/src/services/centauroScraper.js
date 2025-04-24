@@ -36,7 +36,8 @@ exports.scrapeProductData = async (url) => {
   });
   
   try {
-    const page = await browser.newPage();
+    // CORREÇÃO: Usar let em vez de const para poder reatribuir depois
+    let page = await browser.newPage();
     
     // Definir user agent aleatório
     const userAgent = getRandomUserAgent();
@@ -319,6 +320,17 @@ exports.scrapeProductData = async (url) => {
       // Função para limpar texto de preço
       const cleanPrice = (price) => {
         if (!price) return '';
+        
+        // Verificar se temos múltiplos preços concatenados
+        if (price.length > 10) {
+          // Se houver mais de 10 caracteres, provavelmente temos preços concatenados
+          // Pegar apenas o primeiro preço
+          const matches = price.match(/(\d+,\d+)/);
+          if (matches && matches[1]) {
+            return matches[1];
+          }
+        }
+        
         return price.replace(/[^\d,]/g, '').trim();
       };
       
@@ -401,6 +413,15 @@ exports.scrapeProductData = async (url) => {
         }
       }
       
+      // Buscar por preço original no texto da página
+      if (!originalPrice) {
+        const deRegex = /de\s*R\$\s*(\d+[\.,]?\d*)/i;
+        const deMatches = document.body.textContent.match(deRegex);
+        if (deMatches && deMatches[1]) {
+          originalPrice = deMatches[1].trim();
+        }
+      }
+      
       // Imagem do produto
       let productImage = '';
       const imageSelectors = [
@@ -424,6 +445,42 @@ exports.scrapeProductData = async (url) => {
             element.getAttribute('src');
           if (productImage) break;
         }
+      }
+      
+      // Tentar extrair informações de um script JSON
+      try {
+        const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+        for (const script of scripts) {
+          try {
+            const jsonData = JSON.parse(script.textContent);
+            if (jsonData && (jsonData['@type'] === 'Product' || (jsonData.offers && jsonData.name))) {
+              // Usar dados do JSON se disponíveis
+              if (!productTitle && jsonData.name) {
+                productTitle = jsonData.name;
+              }
+              
+              if (!currentPrice && jsonData.offers) {
+                const price = typeof jsonData.offers === 'object' ? 
+                  jsonData.offers.price : 
+                  jsonData.offers[0]?.price;
+                
+                if (price) {
+                  currentPrice = price.toString();
+                }
+              }
+              
+              if (!productImage && jsonData.image) {
+                productImage = Array.isArray(jsonData.image) ? jsonData.image[0] : jsonData.image;
+              }
+              
+              break;
+            }
+          } catch (e) {
+            // Ignorar erros de parsing
+          }
+        }
+      } catch (e) {
+        // Ignorar erros ao processar scripts JSON
       }
       
       return {
