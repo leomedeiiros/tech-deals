@@ -584,35 +584,50 @@ const shareWhatsApp = async () => {
       <button 
         type="button"
         className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
-        onClick={() => setStoreType('amazon')}
+        onClick={() => {
+          setStoreType('amazon');
+          console.log("Botão Amazon clicado, storeType =", 'amazon');
+        }}
       >
         <i className="fab fa-amazon"></i> Amazon
       </button>
       <button 
         type="button"
         className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
-        onClick={() => setStoreType('loja_oficial')}
+        onClick={() => {
+          setStoreType('loja_oficial');
+          console.log("Botão Loja Oficial clicado, storeType =", 'loja_oficial');
+        }}
       >
         <i className="fas fa-check-circle"></i> Loja Oficial
       </button>
       <button 
         type="button"
         className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
-        onClick={() => setStoreType('catalogo')}
+        onClick={() => {
+          setStoreType('catalogo');
+          console.log("Botão Catálogo clicado, storeType =", 'catalogo');
+        }}
       >
         <i className="fas fa-list"></i> Catálogo
       </button>
       <button 
         type="button"
         className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
-        onClick={() => setStoreType('loja_validada')}
+        onClick={() => {
+          setStoreType('loja_validada');
+          console.log("Botão Loja validada clicado, storeType =", 'loja_validada');
+        }}
       >
         <i className="fas fa-shield-alt"></i> Loja validada
       </button>
       <button 
         type="button"
         className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
-        onClick={() => setStoreType('')}
+        onClick={() => {
+          setStoreType('');
+          console.log("Botão Nenhum clicado, storeType =", '');
+        }}
       >
         <i className="fas fa-times"></i> Nenhum
       </button>
