@@ -124,7 +124,7 @@ const MessagePreview = ({
            (originalValue - currentValue) / originalValue > 0.05;
   };
   
-  // Nova função simplificada para retornar apenas o texto plano do tipo de loja
+  // Função fixa para sempre retornar o mesmo valor para cada tipo de loja
   const getStoreTypeText = () => {
     // Se não tiver dados do produto, retornar vazio
     if (!productData) return '';
@@ -134,37 +134,43 @@ const MessagePreview = ({
     const isCentauro = productData.platform === 'centauro' || (productData.vendor && productData.vendor.toLowerCase().includes('centauro'));
     const isNetshoes = productData.platform === 'netshoes' || (productData.vendor && productData.vendor.toLowerCase().includes('netshoes'));
     
-    // Formato específico para cada tipo de loja
-    switch (storeType) {
-      case 'amazon':
-        return 'Vendido e entregue pela Amazon';
-        
-      case 'loja_oficial':
-        // Caso seja loja esportiva específica
-        if (isNike) return 'Loja oficial Nike';
-        if (isCentauro) return 'Loja oficial Centauro';
-        if (isNetshoes) return 'Loja oficial Netshoes';
-        
-        // Caso contrário, para Mercado Livre
-        if (productData.vendor && productData.vendor !== 'Mercado Livre') {
-          const cleanName = cleanVendorName(productData.vendor);
-          return `Loja oficial ${cleanName} no Mercado Livre`;
-        }
-        return 'Loja oficial no Mercado Livre';
-        
-      case 'loja_validada':
-        return 'Loja validada no Mercado Livre';
-        
-      case 'catalogo':
-        if (vendorName && vendorName.trim() !== '') {
-          return `⚠️ Vendedor: ${vendorName}`;
-        } else {
-          return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor 'Informe o nome do vendedor' (loja oficial)`;
-        }
-        
-      default:
-        return '';
+    // Valores fixos para cada tipo de loja
+    if (storeType === 'amazon') {
+      return 'Vendido e entregue pela Amazon';
     }
+    
+    if (storeType === 'loja_oficial') {
+      if (isNike) {
+        return 'Loja oficial Nike no Mercado Livre';
+      }
+      if (isCentauro) {
+        return 'Loja oficial Centauro no Mercado Livre';
+      }
+      if (isNetshoes) {
+        return 'Loja oficial Netshoes no Mercado Livre';
+      }
+      
+      if (productData.vendor && productData.vendor !== 'Mercado Livre') {
+        const cleanName = cleanVendorName(productData.vendor);
+        return `Loja oficial ${cleanName} no Mercado Livre`;
+      }
+      
+      return 'Loja oficial no Mercado Livre';
+    }
+    
+    if (storeType === 'loja_validada') {
+      return 'Loja validada no Mercado Livre';
+    }
+    
+    if (storeType === 'catalogo') {
+      if (vendorName && vendorName.trim() !== '') {
+        return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor '${vendorName}' (loja oficial)`;
+      } else {
+        return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor 'Informe o nome do vendedor' (loja oficial)`;
+      }
+    }
+    
+    return '';
   };
   
   // Verificar se é Amazon para determinar como mostrar preço
@@ -178,6 +184,9 @@ const MessagePreview = ({
     if (!productData) return '';
     
     const { name, currentPrice, originalPrice, productUrl } = productData;
+    
+    // IMPORTANTE: Sempre obter o texto do tipo de loja da função getStoreTypeText
+    // Não gerar o texto aqui para garantir consistência
     const storeTypeText = getStoreTypeText();
     
     let priceText = '';
