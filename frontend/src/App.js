@@ -192,6 +192,7 @@ function App() {
     // Prevenir propagação do evento para evitar que o clique chegue ao elemento pai
     if (e) {
       e.stopPropagation();
+      e.preventDefault();
     }
     
     switch(section) {
@@ -208,7 +209,6 @@ function App() {
         break;
     }
   };
-  
   // Handler para cupom de desconto
   const handleCouponChange = (value) => {
     setCouponCode(value);
@@ -567,60 +567,65 @@ const shareWhatsApp = async () => {
           </div>
         )}
         
-        {/* Seção de Tipo de Loja */}
-        <div className="section-header" onClick={() => toggleSection('store')}>
-          <div className="section-title">
-            <i className="fas fa-store"></i>
-            Tipo de Loja
-          </div>
-          <div className="chevron-container" onClick={(e) => toggleSection('store', e)}>
-            <i className={`fas fa-chevron-down chevron-icon ${storeSectionOpen ? 'open' : ''}`}></i>
-          </div>
-        </div>
-        
-        {storeSectionOpen && (
-          <div className="section-content">
-            <div className="store-type-group">
-              <button 
-                className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
-                onClick={() => setStoreType('amazon')}
-              >
-                <i className="fab fa-amazon"></i> Amazon
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
-                onClick={() => setStoreType('loja_oficial')}
-              >
-                <i className="fas fa-check-circle"></i> Loja Oficial
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
-                onClick={() => setStoreType('catalogo')}
-              >
-                <i className="fas fa-list"></i> Catálogo
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
-                onClick={() => setStoreType('loja_validada')}
-              >
-                <i className="fas fa-shield-alt"></i> Loja validada
-              </button>
-              <button 
-                className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
-                onClick={() => setStoreType('')}
-              >
-                <i className="fas fa-times"></i> Nenhum
-              </button>
-            </div>
-            
-            {storeType === 'catalogo' && (
-              <div className="form-group" style={{ marginTop: '10px' }}>
-                <label className="form-label">Nome do Vendedor:</label>
-                {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
-              </div>
-            )}
-          </div>
-        )}
+{/* Seção de Tipo de Loja */}
+<div className="section-header" onClick={() => toggleSection('store')}>
+  <div className="section-title">
+    <i className="fas fa-store"></i>
+    Tipo de Loja
+  </div>
+  <div className="chevron-container" onClick={(e) => toggleSection('store', e)}>
+    <i className={`fas fa-chevron-down chevron-icon ${storeSectionOpen ? 'open' : ''}`}></i>
+  </div>
+</div>
+
+{storeSectionOpen && (
+  <div className="section-content">
+    <div className="store-type-group">
+      <button 
+        type="button"
+        className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
+        onClick={() => setStoreType('amazon')}
+      >
+        <i className="fab fa-amazon"></i> Amazon
+      </button>
+      <button 
+        type="button"
+        className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
+        onClick={() => setStoreType('loja_oficial')}
+      >
+        <i className="fas fa-check-circle"></i> Loja Oficial
+      </button>
+      <button 
+        type="button"
+        className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
+        onClick={() => setStoreType('catalogo')}
+      >
+        <i className="fas fa-list"></i> Catálogo
+      </button>
+      <button 
+        type="button"
+        className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
+        onClick={() => setStoreType('loja_validada')}
+      >
+        <i className="fas fa-shield-alt"></i> Loja validada
+      </button>
+      <button 
+        type="button"
+        className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
+        onClick={() => setStoreType('')}
+      >
+        <i className="fas fa-times"></i> Nenhum
+      </button>
+    </div>
+    
+    {storeType === 'catalogo' && (
+      <div className="form-group" style={{ marginTop: '10px' }}>
+        <label className="form-label">Nome do Vendedor:</label>
+        {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
+      </div>
+    )}
+  </div>
+)}
         
         {/* Nova Seção: Imagem Personalizada */}
         <div className="section-header" onClick={() => toggleSection('image')}>
