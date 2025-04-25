@@ -126,6 +126,9 @@ const MessagePreview = ({
   
   // Função para gerar texto de tipo de loja
   const getStoreTypeText = () => {
+    // Verificar se há informações de produto disponíveis
+    if (!productData) return '';
+    
     // Determinar qual plataforma é baseado nos dados
     const isCentauro = productData.platform === 'centauro' || 
                        (productData.vendor && productData.vendor.toLowerCase().includes('centauro'));
@@ -143,6 +146,8 @@ const MessagePreview = ({
         return 'Loja validada';
       } else if (storeType === 'catalogo' && vendorName) {
         return `⚠️ Vendedor: ${vendorName}`;
+      } else if (storeType === 'catalogo') {
+        return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor '${vendorName || 'Informe o nome do vendedor'}' (loja oficial)`;
       }
     }
     
@@ -160,6 +165,9 @@ const MessagePreview = ({
         return 'Loja oficial no Mercado Livre';
       }
       case 'catalogo':
+        if (vendorName) {
+          return `⚠️ Vendedor: ${vendorName}`;
+        }
         return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor '${vendorName || 'Informe o nome do vendedor'}' (loja oficial)`;
       case 'loja_validada':
         return 'Loja validada no Mercado Livre'; // 'v' minúsculo conforme solicitado
