@@ -104,6 +104,7 @@ const MessagePreview = ({
       .replace(/^oficial\s*/i, '')
       .replace(/\s*oficial$/i, '')
       .replace(/\s*oficial\s*/i, ' ')
+      .replace(/vendido por/i, '')
       .trim();
     
     return cleanName;
@@ -151,6 +152,7 @@ const MessagePreview = ({
       }
       
       if (productData.vendor && productData.vendor !== 'Mercado Livre') {
+        // Limpar nome do vendedor e garantir bom espaçamento
         const cleanName = cleanVendorName(productData.vendor);
         return `Loja oficial ${cleanName} no Mercado Livre`;
       }
