@@ -236,7 +236,7 @@ const MessagePreview = ({
     // Adicionar link do produto
     message += `\n🛒 ${productUrl}`;
     
-    message += `\n\n☑️ Link do grupo: https://linktr.ee/gdfit`;
+    message += `\n\n☑️ Link do grupo: https://linktr.ee/techdealsbr`;
     
     return message;
   };
