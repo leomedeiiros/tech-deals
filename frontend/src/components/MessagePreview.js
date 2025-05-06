@@ -10,24 +10,45 @@ const MessagePreview = ({
   discountValue,
   setFinalMessage
 }) => {
-  // Função para formatar o preço (preservando milhares)
+  // Função para converter string de preço para número, independentemente do formato
+  const priceStringToNumber = (priceStr) => {
+    if (!priceStr) return 0;
+    
+    // Limpar a string para manter apenas números, vírgulas e pontos
+    let cleanPrice = priceStr.replace(/[^\d,\.]/g, '');
+    
+    // Formato brasileiro: 1.299,90 (ponto como separador de milhar, vírgula como decimal)
+    if (cleanPrice.includes(',')) {
+      return parseFloat(cleanPrice.replace(/\./g, '').replace(',', '.'));
+    }
+    
+    // Formato americano: 1,299.90 (vírgula como separador de milhar, ponto como decimal)
+    if (cleanPrice.includes('.')) {
+      return parseFloat(cleanPrice.replace(/,/g, ''));
+    }
+    
+    // Apenas números
+    return parseFloat(cleanPrice);
+  };
+
+  // Função para formatar o preço (remover apenas a parte decimal)
   const formatPrice = (price) => {
     if (!price) return '';
     
-    // Limpar a string para manter apenas números e vírgulas/pontos
-    let cleanPrice = price.replace(/[^0-9,\.]/g, '');
+    // Limpar a string para manter apenas números, vírgulas e pontos
+    let cleanPrice = price.replace(/[^\d,\.]/g, '');
     
-    // Arredondar para baixo (remover centavos) preservando os milhares
+    // Formato brasileiro: 1.299,90
     if (cleanPrice.includes(',')) {
-      return cleanPrice.split(',')[0].trim();
+      return cleanPrice.split(',')[0];
     }
     
-    // Se o preço contém ponto, assume que é separador decimal
+    // Formato americano ou apenas com ponto decimal: 1,299.90 ou 1299.90
     if (cleanPrice.includes('.')) {
-      return cleanPrice.split('.')[0].trim();
+      return cleanPrice.split('.')[0];
     }
     
-    return cleanPrice.trim();
+    return cleanPrice;
   };
   
   // Função para calcular preço com desconto percentual
@@ -37,17 +58,7 @@ const MessagePreview = ({
     }
     
     // Converter o preço para número, removendo formatação
-    let priceNum;
-    // Limpar a string de preço removendo tudo exceto números, vírgulas e pontos
-    let cleanPrice = currentPrice.replace(/[^0-9,\.]/g, '');
-    
-    if (cleanPrice.includes(',')) {
-      // Se o preço já está no formato brasileiro (ex: "1.599,99" ou "159,99")
-      priceNum = parseFloat(cleanPrice.replace(/\./g, '').replace(',', '.'));
-    } else {
-      // Se o preço está com ponto decimal ou é apenas um número
-      priceNum = parseFloat(cleanPrice);
-    }
+    let priceNum = priceStringToNumber(currentPrice);
     
     if (isNaN(priceNum)) {
       return currentPrice;
@@ -68,17 +79,7 @@ const MessagePreview = ({
     }
     
     // Converter o preço para número, removendo formatação
-    let priceNum;
-    // Limpar a string de preço removendo tudo exceto números, vírgulas e pontos
-    let cleanPrice = currentPrice.replace(/[^0-9,\.]/g, '');
-    
-    if (cleanPrice.includes(',')) {
-      // Se o preço já está no formato brasileiro (ex: "1.599,99" ou "159,99")
-      priceNum = parseFloat(cleanPrice.replace(/\./g, '').replace(',', '.'));
-    } else {
-      // Se o preço está com ponto decimal ou é apenas um número
-      priceNum = parseFloat(cleanPrice);
-    }
+    let priceNum = priceStringToNumber(currentPrice);
     
     if (isNaN(priceNum)) {
       return currentPrice;
@@ -123,13 +124,9 @@ const MessagePreview = ({
   const hasRealDiscount = (originalPrice, currentPrice) => {
     if (!originalPrice || !currentPrice) return false;
     
-    // Converter preços para números (após remoção de centavos)
-    // Limpar as strings removendo qualquer caractere que não seja número
-    const cleanOriginal = formatPrice(originalPrice).replace(/\D/g, '');
-    const cleanCurrent = formatPrice(currentPrice).replace(/\D/g, '');
-    
-    const originalValue = parseInt(cleanOriginal);
-    const currentValue = parseInt(cleanCurrent);
+    // Converter preços para números
+    const originalValue = priceStringToNumber(originalPrice);
+    const currentValue = priceStringToNumber(currentPrice);
     
     // Verificar se o preço original é significativamente maior que o atual
     // (diferença mínima de 5% para considerar como desconto real)

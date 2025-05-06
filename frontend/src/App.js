@@ -96,6 +96,47 @@ function App() {
     setter(newArray);
   };
 
+  // Função para converter string de preço para número, independentemente do formato
+  const priceStringToNumber = (priceStr) => {
+    if (!priceStr) return 0;
+    
+    // Limpar a string para manter apenas números, vírgulas e pontos
+    let cleanPrice = priceStr.replace(/[^\d,\.]/g, '');
+    
+    // Formato brasileiro: 1.299,90 (ponto como separador de milhar, vírgula como decimal)
+    if (cleanPrice.includes(',')) {
+      return parseFloat(cleanPrice.replace(/\./g, '').replace(',', '.'));
+    }
+    
+    // Formato americano: 1,299.90 (vírgula como separador de milhar, ponto como decimal)
+    if (cleanPrice.includes('.')) {
+      return parseFloat(cleanPrice.replace(/,/g, ''));
+    }
+    
+    // Apenas números
+    return parseFloat(cleanPrice);
+  };
+
+  // Função para arredondar preço para baixo (remover centavos)
+  const roundPriceDown = (price) => {
+    if (!price) return price;
+    
+    // Limpar a string para manter apenas números, vírgulas e pontos
+    let cleanPrice = price.replace(/[^\d,\.]/g, '');
+    
+    // Formato brasileiro: 1.299,90
+    if (cleanPrice.includes(',')) {
+      return cleanPrice.split(',')[0];
+    }
+    
+    // Formato americano ou apenas com ponto decimal: 1,299.90 ou 1299.90
+    if (cleanPrice.includes('.')) {
+      return cleanPrice.split('.')[0];
+    }
+    
+    return cleanPrice;
+  };
+
   const handleProductDataReceived = (data, url) => {
     // Arredondar preços para baixo (remover centavos)
     if (data && data.currentPrice) {
@@ -169,26 +210,6 @@ function App() {
         }
       }
     }, 300);
-  };
-  
-  // Função para arredondar preço para baixo (remover centavos)
-  const roundPriceDown = (price) => {
-    if (!price) return price;
-    
-    // Limpar a string para manter apenas números e vírgulas/pontos
-    let cleanPrice = price.replace(/[^0-9,\.]/g, '');
-    
-    // Se contém vírgula, pega apenas a parte antes da vírgula, preservando os milhares
-    if (cleanPrice.includes(',')) {
-      return cleanPrice.split(',')[0];
-    }
-    
-    // Se contém ponto, assume que é separador decimal
-    if (cleanPrice.includes('.')) {
-      return cleanPrice.split('.')[0];
-    }
-    
-    return cleanPrice;
   };
   
   const toggleSection = (section, e) => {
@@ -752,7 +773,7 @@ const shareWhatsApp = async () => {
               <div className="loading"></div>
               <span>Carregando informações do produto...</span>
             </div>
-          </div>
+            </div>
         ) : productData ? (
           <div className="preview-section">
             <p className="preview-label">Prévia da mensagem</p>
