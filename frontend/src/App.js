@@ -175,17 +175,20 @@ function App() {
   const roundPriceDown = (price) => {
     if (!price) return price;
     
-    // Se contém vírgula, pega apenas a parte antes da vírgula
-    if (price.includes(',')) {
-      return price.split(',')[0];
+    // Limpar a string para manter apenas números e vírgulas/pontos
+    let cleanPrice = price.replace(/[^0-9,\.]/g, '');
+    
+    // Se contém vírgula, pega apenas a parte antes da vírgula, preservando os milhares
+    if (cleanPrice.includes(',')) {
+      return cleanPrice.split(',')[0];
     }
     
     // Se contém ponto, assume que é separador decimal
-    if (price.includes('.')) {
-      return price.split('.')[0];
+    if (cleanPrice.includes('.')) {
+      return cleanPrice.split('.')[0];
     }
     
-    return price;
+    return cleanPrice;
   };
   
   const toggleSection = (section, e) => {
