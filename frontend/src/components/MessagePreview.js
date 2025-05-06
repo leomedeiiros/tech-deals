@@ -10,63 +10,69 @@ const MessagePreview = ({
   discountValue,
   setFinalMessage
 }) => {
-  // Função para formatar o preço (com solução específica para preços acima de 999)
+  // SOLUÇÃO DEFINITIVA: função para formatar o preço mantendo separadores de milhar
   const formatPrice = (price) => {
     if (!price) return '';
     
-    // Remover apenas caracteres não numéricos, mas manter pontos e vírgulas
-    let cleanPrice = price.replace(/[^\d,\.]/g, '');
-    
-    // Verificar formato com vírgula (formato brasileiro)
-    if (cleanPrice.includes(',')) {
-      // Retorna toda a parte antes da vírgula (ex: em "1.299,90" retorna "1.299")
-      return cleanPrice.split(',')[0];
+    // Se o preço já contém separador de milhar (ponto) e decimal (vírgula) - formato brasileiro
+    // Exemplo: "3.799,90" -> "3.799"
+    if (typeof price === 'string' && price.includes('.') && price.includes(',')) {
+      return price.split(',')[0]; // Retorna tudo antes da vírgula (mantendo pontos de milhar)
     }
     
-    // Verificar formato com ponto (formato americano)
-    if (cleanPrice.includes('.')) {
-      // Verificar se tem vírgula de milhar antes do ponto
-      if (cleanPrice.indexOf(',') < cleanPrice.indexOf('.') && cleanPrice.indexOf(',') !== -1) {
-        // Formato americano (1,299.90) - manter a vírgula de milhar
-        return cleanPrice.split('.')[0];
-      }
-      
-      // Formato com ponto como separador decimal sem vírgula de milhar
-      // Vamos verificar quantos pontos existem (se houver mais de um, provavelmente é separador de milhar)
-      const pontos = cleanPrice.match(/\./g);
+    // Se o preço contém apenas vírgula (sem pontos) - formato simplificado brasileiro
+    // Exemplo: "3799,90" -> "3799"
+    if (typeof price === 'string' && price.includes(',') && !price.includes('.')) {
+      return price.split(',')[0];
+    }
+    
+    // Se o preço contém pontos mas não vírgulas, pode ser formato americano ou pontos decimais
+    // Vamos verificar quantos pontos existem
+    if (typeof price === 'string' && price.includes('.') && !price.includes(',')) {
+      const pontos = price.match(/\./g);
       if (pontos && pontos.length > 1) {
-        // Temos pontos de milhar - retornar tudo (ex: em "1.299.90" retorna "1.299")
-        const lastDotIndex = cleanPrice.lastIndexOf('.');
-        return cleanPrice.substring(0, lastDotIndex);
+        // Múltiplos pontos = formato com separadores de milhar
+        // Exemplo: "3.799.00" -> "3.799"
+        const lastDotIndex = price.lastIndexOf('.');
+        return price.substring(0, lastDotIndex);
       } else {
-        // Apenas um ponto como decimal - retornar tudo antes do ponto
-        return cleanPrice.split('.')[0];
+        // Apenas um ponto = decimal
+        // Exemplo: "3799.90" -> "3799"
+        return price.split('.')[0];
       }
     }
     
-    // Se não tem vírgula nem ponto, retornar como está
-    return cleanPrice;
+    // Se o preço tem vírgulas como separador de milhar e ponto como decimal (formato americano)
+    // Exemplo: "3,799.90" -> "3,799"
+    if (typeof price === 'string' && price.includes(',') && price.includes('.')) {
+      if (price.indexOf(',') < price.indexOf('.')) {
+        return price.split('.')[0];
+      }
+    }
+    
+    // Caso seja apenas um número sem formatação
+    return price;
   };
   
-  // Função para converter string de preço para número, independentemente do formato
+  // Função para converter string de preço para número
   const priceStringToNumber = (priceStr) => {
     if (!priceStr) return 0;
     
-    // Limpar a string para manter apenas números, vírgulas e pontos
-    let cleanPrice = priceStr.replace(/[^\d,\.]/g, '');
+    // Converter para string se não for
+    const priceString = String(priceStr);
     
-    // Formato brasileiro: 1.299,90 (ponto como separador de milhar, vírgula como decimal)
-    if (cleanPrice.includes(',')) {
-      return parseFloat(cleanPrice.replace(/\./g, '').replace(',', '.'));
+    // Formato brasileiro: 3.799,90 (ponto como separador de milhar, vírgula como decimal)
+    if (priceString.includes(',')) {
+      return parseFloat(priceString.replace(/\./g, '').replace(',', '.'));
     }
     
-    // Formato americano: 1,299.90 (vírgula como separador de milhar, ponto como decimal)
-    if (cleanPrice.includes('.')) {
-      return parseFloat(cleanPrice.replace(/,/g, ''));
+    // Formato americano: 3,799.90 (vírgula como separador de milhar, ponto como decimal)
+    if (priceString.includes('.')) {
+      return parseFloat(priceString.replace(/,/g, ''));
     }
     
     // Apenas números
-    return parseFloat(cleanPrice);
+    return parseFloat(priceString);
   };
   
   // Função para calcular preço com desconto percentual
@@ -75,8 +81,8 @@ const MessagePreview = ({
       return currentPrice;
     }
     
-    // Converter o preço para número, removendo formatação
-    let priceNum = priceStringToNumber(currentPrice);
+    // Converter o preço para número
+    const priceNum = priceStringToNumber(currentPrice);
     
     if (isNaN(priceNum)) {
       return currentPrice;
@@ -96,8 +102,8 @@ const MessagePreview = ({
       return currentPrice;
     }
     
-    // Converter o preço para número, removendo formatação
-    let priceNum = priceStringToNumber(currentPrice);
+    // Converter o preço para número
+    const priceNum = priceStringToNumber(currentPrice);
     
     if (isNaN(priceNum)) {
       return currentPrice;
@@ -147,7 +153,6 @@ const MessagePreview = ({
     const currentValue = priceStringToNumber(currentPrice);
     
     // Verificar se o preço original é significativamente maior que o atual
-    // (diferença mínima de 5% para considerar como desconto real)
     return !isNaN(originalValue) && !isNaN(currentValue) && 
            originalValue > currentValue && 
            (originalValue - currentValue) / originalValue > 0.05;
@@ -221,7 +226,7 @@ const MessagePreview = ({
     
     let priceText = '';
     
-    // Processar preço atual para remover centavos
+    // Processar preço atual para remover centavos, mantendo separadores de milhar
     const processedCurrentPrice = formatPrice(currentPrice);
     
     // Determinar preço final (com possíveis descontos)
@@ -239,16 +244,35 @@ const MessagePreview = ({
       final: finalPrice 
     });
     
-    // SOLUÇÃO ESPECÍFICA para o problema de preços acima de 999
-    // Se o preço final é apenas "1" e o preço original contém "1." 
-    // (caso específico para 1.299,90 -> 1)
-    if (finalPrice === "1" && currentPrice && currentPrice.includes("1.")) {
-      console.log("Correção aplicada para preço 1.XXX");
-      finalPrice = currentPrice.split(",")[0]; // Manter tudo antes da vírgula
+    // IMPORTANTE: Verifica se o preço final é apenas "1" (sinal de problema)
+    // e recupera o preço original formatado sem os centavos
+    if (finalPrice === "1" && currentPrice) {
+      console.log("CORREÇÃO APLICADA: Detectado problema de preço");
+      // Para garantir, usamos o preço original e removemos apenas a parte decimal
+      if (typeof currentPrice === 'string' && currentPrice.includes(',')) {
+        finalPrice = currentPrice.split(',')[0];
+      } else if (typeof currentPrice === 'string' && currentPrice.includes('.')) {
+        // Se tem múltiplos pontos, é separador de milhar, senão é decimal
+        const pontos = currentPrice.match(/\./g);
+        if (pontos && pontos.length > 1) {
+          const lastDotIndex = currentPrice.lastIndexOf('.');
+          finalPrice = currentPrice.substring(0, lastDotIndex);
+        } else {
+          finalPrice = currentPrice.split('.')[0];
+        }
+      }
     }
     
-    // Processar preço original para remover centavos
+    // Processar preço original para remover centavos, mantendo separadores de milhar
     const processedOriginalPrice = formatPrice(originalPrice);
+    
+    // CORREÇÃO ESPECÍFICA para o preço original também
+    let fixedOriginalPrice = processedOriginalPrice;
+    if (processedOriginalPrice === "1" || processedOriginalPrice === "2" || processedOriginalPrice === "3") {
+      if (typeof originalPrice === 'string' && originalPrice.includes(',')) {
+        fixedOriginalPrice = originalPrice.split(',')[0];
+      }
+    }
     
     // Para Amazon, mostrar apenas o preço atual (sem o original)
     if (isAmazon) {
@@ -256,8 +280,8 @@ const MessagePreview = ({
     } else {
       // Para todas as outras lojas (Mercado Livre, Nike, Centauro, etc),
       // SEMPRE mostrar o formato De/Por quando há um preço original
-      if (processedOriginalPrice && hasRealDiscount(processedOriginalPrice, finalPrice)) {
-        priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
+      if (fixedOriginalPrice && hasRealDiscount(fixedOriginalPrice, finalPrice)) {
+        priceText = `✅  ~De R$ ${fixedOriginalPrice}~ por *R$ ${finalPrice}*`;
       } else {
         // Caso não tenha desconto, mostrar apenas o preço atual
         priceText = `✅  Por *R$ ${finalPrice}*`;
