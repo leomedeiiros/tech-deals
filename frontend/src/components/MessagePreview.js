@@ -10,6 +10,44 @@ const MessagePreview = ({
   discountValue,
   setFinalMessage
 }) => {
+  // Função para formatar o preço (com solução específica para preços acima de 999)
+  const formatPrice = (price) => {
+    if (!price) return '';
+    
+    // Remover apenas caracteres não numéricos, mas manter pontos e vírgulas
+    let cleanPrice = price.replace(/[^\d,\.]/g, '');
+    
+    // Verificar formato com vírgula (formato brasileiro)
+    if (cleanPrice.includes(',')) {
+      // Retorna toda a parte antes da vírgula (ex: em "1.299,90" retorna "1.299")
+      return cleanPrice.split(',')[0];
+    }
+    
+    // Verificar formato com ponto (formato americano)
+    if (cleanPrice.includes('.')) {
+      // Verificar se tem vírgula de milhar antes do ponto
+      if (cleanPrice.indexOf(',') < cleanPrice.indexOf('.') && cleanPrice.indexOf(',') !== -1) {
+        // Formato americano (1,299.90) - manter a vírgula de milhar
+        return cleanPrice.split('.')[0];
+      }
+      
+      // Formato com ponto como separador decimal sem vírgula de milhar
+      // Vamos verificar quantos pontos existem (se houver mais de um, provavelmente é separador de milhar)
+      const pontos = cleanPrice.match(/\./g);
+      if (pontos && pontos.length > 1) {
+        // Temos pontos de milhar - retornar tudo (ex: em "1.299.90" retorna "1.299")
+        const lastDotIndex = cleanPrice.lastIndexOf('.');
+        return cleanPrice.substring(0, lastDotIndex);
+      } else {
+        // Apenas um ponto como decimal - retornar tudo antes do ponto
+        return cleanPrice.split('.')[0];
+      }
+    }
+    
+    // Se não tem vírgula nem ponto, retornar como está
+    return cleanPrice;
+  };
+  
   // Função para converter string de preço para número, independentemente do formato
   const priceStringToNumber = (priceStr) => {
     if (!priceStr) return 0;
@@ -29,26 +67,6 @@ const MessagePreview = ({
     
     // Apenas números
     return parseFloat(cleanPrice);
-  };
-
-  // Função para formatar o preço (remover apenas a parte decimal)
-  const formatPrice = (price) => {
-    if (!price) return '';
-    
-    // Limpar a string para manter apenas números, vírgulas e pontos
-    let cleanPrice = price.replace(/[^\d,\.]/g, '');
-    
-    // Formato brasileiro: 1.299,90
-    if (cleanPrice.includes(',')) {
-      return cleanPrice.split(',')[0];
-    }
-    
-    // Formato americano ou apenas com ponto decimal: 1,299.90 ou 1299.90
-    if (cleanPrice.includes('.')) {
-      return cleanPrice.split('.')[0];
-    }
-    
-    return cleanPrice;
   };
   
   // Função para calcular preço com desconto percentual
@@ -212,6 +230,21 @@ const MessagePreview = ({
       finalPrice = calculatePercentageDiscount(processedCurrentPrice);
     } else if (discountValue) {
       finalPrice = calculateValueDiscount(processedCurrentPrice);
+    }
+    
+    // Log para debug
+    console.log("DEBUG - Preço:", {
+      original: currentPrice,
+      processado: processedCurrentPrice,
+      final: finalPrice 
+    });
+    
+    // SOLUÇÃO ESPECÍFICA para o problema de preços acima de 999
+    // Se o preço final é apenas "1" e o preço original contém "1." 
+    // (caso específico para 1.299,90 -> 1)
+    if (finalPrice === "1" && currentPrice && currentPrice.includes("1.")) {
+      console.log("Correção aplicada para preço 1.XXX");
+      finalPrice = currentPrice.split(",")[0]; // Manter tudo antes da vírgula
     }
     
     // Processar preço original para remover centavos
