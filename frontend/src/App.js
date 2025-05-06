@@ -96,54 +96,32 @@ function App() {
     setter(newArray);
   };
 
-  // Função para converter string de preço para número, independentemente do formato
-  const priceStringToNumber = (priceStr) => {
-    if (!priceStr) return 0;
-    
-    // Limpar a string para manter apenas números, vírgulas e pontos
-    let cleanPrice = priceStr.replace(/[^\d,\.]/g, '');
-    
-    // Formato brasileiro: 1.299,90 (ponto como separador de milhar, vírgula como decimal)
-    if (cleanPrice.includes(',')) {
-      return parseFloat(cleanPrice.replace(/\./g, '').replace(',', '.'));
-    }
-    
-    // Formato americano: 1,299.90 (vírgula como separador de milhar, ponto como decimal)
-    if (cleanPrice.includes('.')) {
-      return parseFloat(cleanPrice.replace(/,/g, ''));
-    }
-    
-    // Apenas números
-    return parseFloat(cleanPrice);
-  };
-
-  // Função para arredondar preço para baixo (remover centavos)
-  const roundPriceDown = (price) => {
-    if (!price) return price;
-    
-    // Limpar a string para manter apenas números, vírgulas e pontos
-    let cleanPrice = price.replace(/[^\d,\.]/g, '');
-    
-    // Formato brasileiro: 1.299,90
-    if (cleanPrice.includes(',')) {
-      return cleanPrice.split(',')[0];
-    }
-    
-    // Formato americano ou apenas com ponto decimal: 1,299.90 ou 1299.90
-    if (cleanPrice.includes('.')) {
-      return cleanPrice.split('.')[0];
-    }
-    
-    return cleanPrice;
-  };
-
+  // SOLUÇÃO CRÍTICA para o problema de preços acima de 999
   const handleProductDataReceived = (data, url) => {
-    // Arredondar preços para baixo (remover centavos)
-    if (data && data.currentPrice) {
-      data.currentPrice = roundPriceDown(data.currentPrice);
-    }
-    if (data && data.originalPrice) {
-      data.originalPrice = roundPriceDown(data.originalPrice);
+    // SOLUÇÃO DE EMERGÊNCIA: Correção para preços acima de 999
+    if (data) {
+      console.log("Dados originais do produto:", {
+        currentPrice: data.currentPrice,
+        originalPrice: data.originalPrice
+      });
+      
+      // Verificar se o preço atual contém um ponto (formato de milhar)
+      if (data.currentPrice && typeof data.currentPrice === 'string') {
+        // Preservar o formato com pontos, remover apenas a parte após a vírgula
+        if (data.currentPrice.includes(',')) {
+          data.currentPrice = data.currentPrice.split(',')[0];
+          console.log("Preço atual corrigido para:", data.currentPrice);
+        }
+      }
+      
+      // Mesma verificação para o preço original
+      if (data.originalPrice && typeof data.originalPrice === 'string') {
+        // Preservar o formato com pontos, remover apenas a parte após a vírgula
+        if (data.originalPrice.includes(',')) {
+          data.originalPrice = data.originalPrice.split(',')[0];
+          console.log("Preço original corrigido para:", data.originalPrice);
+        }
+      }
     }
     
     setProductData(data);
@@ -773,7 +751,7 @@ const shareWhatsApp = async () => {
               <div className="loading"></div>
               <span>Carregando informações do produto...</span>
             </div>
-            </div>
+          </div>
         ) : productData ? (
           <div className="preview-section">
             <p className="preview-label">Prévia da mensagem</p>
@@ -844,3 +822,4 @@ const shareWhatsApp = async () => {
 }
 
 export default App;
+                
