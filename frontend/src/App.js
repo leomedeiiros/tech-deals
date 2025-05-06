@@ -96,30 +96,49 @@ function App() {
     setter(newArray);
   };
 
-  // SOLUÇÃO CRÍTICA para o problema de preços acima de 999
+  // Converte preço para formato numérico para cálculos (preserva para funções de desconto)
+  const priceToNumber = (priceStr) => {
+    if (!priceStr) return 0;
+    
+    // Converter para string se não for
+    const priceString = String(priceStr);
+    
+    // Formato brasileiro (1.299,90) -> 1299.90
+    if (priceString.includes(',')) {
+      return parseFloat(priceString.replace(/\./g, '').replace(',', '.'));
+    }
+    
+    // Formato americano ou já numérico
+    return parseFloat(priceString);
+  };
+
+  // SOLUÇÃO PARA PREÇOS ACIMA DE 999 QUE PRESERVA FUNCIONALIDADE DE DESCONTOS
   const handleProductDataReceived = (data, url) => {
-    // SOLUÇÃO DE EMERGÊNCIA: Correção para preços acima de 999
     if (data) {
       console.log("Dados originais do produto:", {
         currentPrice: data.currentPrice,
         originalPrice: data.originalPrice
       });
       
-      // Verificar se o preço atual contém um ponto (formato de milhar)
-      if (data.currentPrice && typeof data.currentPrice === 'string') {
-        // Preservar o formato com pontos, remover apenas a parte após a vírgula
-        if (data.currentPrice.includes(',')) {
-          data.currentPrice = data.currentPrice.split(',')[0];
-          console.log("Preço atual corrigido para:", data.currentPrice);
+      // Criar cópias dos preços originais para uso nos cálculos de desconto
+      // Isso garante que o desconto seja calculado corretamente
+      if (data.currentPrice) {
+        data.displayPrice = data.currentPrice;
+        
+        // Verificar se precisamos remover centavos mantendo o formato de milhar
+        if (typeof data.displayPrice === 'string' && data.displayPrice.includes(',')) {
+          data.displayPrice = data.displayPrice.split(',')[0];
+          console.log("Preço de exibição corrigido para:", data.displayPrice);
         }
       }
       
-      // Mesma verificação para o preço original
-      if (data.originalPrice && typeof data.originalPrice === 'string') {
-        // Preservar o formato com pontos, remover apenas a parte após a vírgula
-        if (data.originalPrice.includes(',')) {
-          data.originalPrice = data.originalPrice.split(',')[0];
-          console.log("Preço original corrigido para:", data.originalPrice);
+      if (data.originalPrice) {
+        data.displayOriginalPrice = data.originalPrice;
+        
+        // Verificar se precisamos remover centavos mantendo o formato de milhar
+        if (typeof data.displayOriginalPrice === 'string' && data.displayOriginalPrice.includes(',')) {
+          data.displayOriginalPrice = data.displayOriginalPrice.split(',')[0];
+          console.log("Preço original de exibição corrigido para:", data.displayOriginalPrice);
         }
       }
     }
@@ -747,7 +766,7 @@ const shareWhatsApp = async () => {
         
         {loading ? (
           <div className="section-content" style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignItems: 'center', padding: '20px' }}>
               <div className="loading"></div>
               <span>Carregando informações do produto...</span>
             </div>
@@ -822,4 +841,3 @@ const shareWhatsApp = async () => {
 }
 
 export default App;
-                
