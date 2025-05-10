@@ -4,6 +4,7 @@ const mercadoLivreScraper = require('../services/mercadoLivreScraper');
 const centauroScraper = require('../services/centauroScraper');
 const netshoesScraper = require('../services/netshoesScraper');
 const nikeScraper = require('../services/nikeScraper');
+const shopeeScraper = require('../services/shopeeScraper');
 const linkResolver = require('../utils/linkResolver');
 const whatsappService = require('../services/whatsappService');
 
@@ -25,6 +26,9 @@ exports.scrapeProduct = async (req, res) => {
     
     // Verificar se é link da Rakuten (Netshoes)
     const isRakutenAffiliate = url.includes('tiny.cc/');
+    
+    // Verificar se é link de afiliado da Shopee
+    const isShopeeAffiliate = url.includes('shopee.com.br') || url.includes('s.shopee.com.br');
     
     // Verificar se os links de afiliados podem ser passados diretamente para os scrapers específicos
     if (isMercadoLivreAffiliate) {
@@ -54,6 +58,14 @@ exports.scrapeProduct = async (req, res) => {
     if (isRakutenAffiliate && url.includes('ebah001')) {
       console.log('Link de afiliado da Netshoes detectado. Usando scraper direto.');
       const productData = await netshoesScraper.scrapeProductData(url);
+      productData.productUrl = url;
+      console.log('Dados do produto extraídos com sucesso:', productData);
+      return res.json(productData);
+    }
+    
+    if (isShopeeAffiliate) {
+      console.log('Link da Shopee detectado. Usando scraper direto.');
+      const productData = await shopeeScraper.scrapeProductData(url);
       productData.productUrl = url;
       console.log('Dados do produto extraídos com sucesso:', productData);
       return res.json(productData);
@@ -90,8 +102,13 @@ exports.scrapeProduct = async (req, res) => {
     ) {
       console.log('Usando Nike Scraper');
       productData = await nikeScraper.scrapeProductData(resolvedUrl);
+    } else if (
+      resolvedUrl.includes('shopee.com.br')
+    ) {
+      console.log('Usando Shopee Scraper');
+      productData = await shopeeScraper.scrapeProductData(resolvedUrl);
     } else {
-      return res.status(400).json({ error: 'URL não suportada. Apenas Amazon, Mercado Livre, Centauro, Netshoes e Nike são suportados.' });
+      return res.status(400).json({ error: 'URL não suportada. Apenas Amazon, Mercado Livre, Centauro, Netshoes, Nike e Shopee são suportados.' });
     }
     
     productData.productUrl = url;

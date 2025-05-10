@@ -181,6 +181,12 @@ function App() {
       (data.vendor && data.vendor.toLowerCase().includes('nike')) ||
       (data.platform && typeof data.platform === 'string' && 
        data.platform.toLowerCase().includes('nike'));
+
+    const isShopee = 
+      (url && url.includes('shopee.com.br')) ||
+      (data.vendor && data.vendor.toLowerCase().includes('shopee')) ||
+      (data.platform && typeof data.platform === 'string' && 
+       data.platform.toLowerCase().includes('shopee'));
       
     // DEFINIR TIPO DE LOJA PADRÃO
     if (isAmazon) {
@@ -188,6 +194,8 @@ function App() {
     } else if (isMercadoLivre) {
       // Para o Mercado Livre, definir SEMPRE como "loja_oficial" por padrão
       setStoreType('loja_oficial');
+    } else if (isShopee) {
+      setStoreType('loja_validada');
     } else if (isCentauro || isNetshoes || isNike) {
       // Para lojas esportivas, definir como "loja_oficial" por padrão
       setStoreType('loja_oficial');

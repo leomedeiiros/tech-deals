@@ -144,6 +144,7 @@ const MessagePreview = ({
     const isNike = productData.platform === 'nike' || (productData.vendor && productData.vendor.toLowerCase().includes('nike'));
     const isCentauro = productData.platform === 'centauro' || (productData.vendor && productData.vendor.toLowerCase().includes('centauro'));
     const isNetshoes = productData.platform === 'netshoes' || (productData.vendor && productData.vendor.toLowerCase().includes('netshoes'));
+    const isShopee = productData.platform === 'shopee' || (productData.vendor && productData.vendor.toLowerCase().includes('shopee'));
     
     // Valores fixos para cada tipo de loja
     if (storeType === 'amazon') {
@@ -160,6 +161,9 @@ const MessagePreview = ({
       if (isNetshoes) {
         return 'Loja oficial Netshoes no Mercado Livre';
       }
+      if (isShopee) {
+        return 'Loja oficial na Shopee';
+      }
       
       if (productData.vendor && productData.vendor !== 'Mercado Livre') {
         // Limpar nome do vendedor e garantir bom espaçamento
@@ -171,6 +175,9 @@ const MessagePreview = ({
     }
     
     if (storeType === 'loja_validada') {
+      if (isShopee) {
+        return 'Loja validada na Shopee';
+      }
       return 'Loja validada no Mercado Livre';
     }
     
@@ -248,7 +255,7 @@ const MessagePreview = ({
     if (isAmazon) {
       priceText = `✅  Por *R$ ${finalPrice}*`;
     } else {
-      // Para todas as outras lojas (Mercado Livre, Nike, Centauro, etc),
+      // Para todas as outras lojas (Mercado Livre, Nike, Centauro, Shopee, etc),
       // SEMPRE mostrar o formato De/Por quando há um preço original
       if (processedOriginalPrice && hasRealDiscount(rawOriginalPrice, finalPrice)) {
         priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
