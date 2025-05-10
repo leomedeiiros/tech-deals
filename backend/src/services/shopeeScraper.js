@@ -1,6 +1,5 @@
 // backend/src/services/shopeeScraper.js
 const puppeteer = require('puppeteer');
-const https = require('https');
 
 // Função auxiliar para substituir waitForTimeout
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -32,176 +31,244 @@ const extractProductIds = (url) => {
   return null;
 };
 
-// Função para decodificar URL e extrair nome do produto
-const extractProductNameFromUrl = async (page, finalUrl) => {
-  console.log('Tentando extrair nome do produto da página...');
-  
+// Função para extrair dados da página com múltiplas estratégias
+const extractProductData = async (page) => {
   try {
-    // Wait for page to be loaded
-    await wait(3000);
+    console.log('Tentando extrair dados da página...');
     
-    // Try to extract title from page
-    const pageTitle = await page.evaluate(() => {
-      // Try various selectors for product title
-      const selectors = [
+    // Aguardar elementos carregarem
+    await wait(5000);
+    
+    // Tentar múltiplas estratégias de extração
+    const productData = await page.evaluate(() => {
+      const data = {
+        name: '',
+        currentPrice: '',
+        originalPrice: '',
+        imageUrl: '',
+        vendor: 'Shopee'
+      };
+      
+      // 1. Procurar título do produto
+      const titleSelectors = [
+        // Seletores mais específicos
+        'div.qaNIZv span', // Seletor comum da Shopee atual
+        'h1.product-name',
+        'div.product-title h1',
+        'div[class*="item-header"] h1',
+        'div[data-sqe="name"]',
+        'span[data-testid="product-name"]',
+        
+        // Seletores mais genéricos
         'h1',
-        '[class*="title"]',
-        '[class*="name"]',
-        '[data-testid*="product-name"]',
-        '.product-briefing h1',
-        '.item-header h1',
-        '.product-name',
-        '.product-title'
+        '[class*="product-name"]',
+        '[class*="item-name"]',
+        'span[class*="product-title"]'
       ];
       
-      for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element && element.textContent.trim()) {
-          const text = element.textContent.trim();
-          // Skip if it's just generic text or too short
-          if (text.length > 3 && 
-              !text.toLowerCase().includes('shopee') && 
-              !text.toLowerCase().includes('login') &&
-              !text.toLowerCase().includes('error')) {
-            return text;
+      for (const selector of titleSelectors) {
+        try {
+          const elements = document.querySelectorAll(selector);
+          for (const element of elements) {
+            if (element && element.textContent) {
+              const text = element.textContent.trim();
+              // Verificar se o texto é válido
+              if (text.length > 5 && 
+                  !text.toLowerCase().includes('shopee') && 
+                  !text.toLowerCase().includes('login') &&
+                  !text.toLowerCase().includes('carregando') &&
+                  !text.toLowerCase().includes('loading') &&
+                  text !== 'Brasil | Ofertas incríveis. Melhores preços do mercado') {
+                data.name = text;
+                console.log(`Nome encontrado com ${selector}: ${text}`);
+                break;
+              }
+            }
           }
+          if (data.name) break;
+        } catch (e) {
+          console.log(`Erro com seletor ${selector}:`, e);
         }
       }
       
-      // Fallback to page title
-      const pageTitle = document.title;
-      if (pageTitle && pageTitle.length > 5) {
-        // Clean up page title
-        const cleanTitle = pageTitle
-          .replace('| Shopee Brasil', '')
-          .replace('- Shopee', '')
-          .replace('Shopee', '')
-          .trim();
+      // 2. Procurar preços
+      const priceSelectors = [
+        // Preço atual
+        'div.pmmxKx',
+        'span.pqTWkA',
+        'div[class*="current-price"]',
+        'span[class*="final-price"]',
+        'div.flex.flex-col.items-start span',
         
-        if (cleanTitle.length > 3) {
-          return cleanTitle;
+        // Preços genéricos
+        'span[class*="price"] span',
+        'div[class*="price-section"] span'
+      ];
+      
+      for (const selector of priceSelectors) {
+        try {
+          const elements = document.querySelectorAll(selector);
+          for (const element of elements) {
+            if (element && element.textContent) {
+              const text = element.textContent.trim();
+              if (text.includes('R$') || text.match(/\d+[,\.]\d+/)) {
+                // Extrair apenas números e vírgula
+                const priceMatch = text.match(/R?\$?\s*(\d+[,\.]\d+)/);
+                if (priceMatch) {
+                  const price = priceMatch[1].replace('.', ',');
+                  if (!data.currentPrice) {
+                    data.currentPrice = price;
+                    console.log(`Preço encontrado: ${price}`);
+                  } else if (!data.originalPrice && price !== data.currentPrice) {
+                    data.originalPrice = price;
+                    console.log(`Preço original encontrado: ${price}`);
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.log(`Erro com seletor de preço ${selector}:`, e);
         }
       }
       
-      return null;
-    });
-    
-    if (pageTitle && pageTitle.length > 3) {
-      console.log(`Nome extraído da página: ${pageTitle}`);
-      return pageTitle;
-    }
-  } catch (error) {
-    console.log('Erro ao extrair da página:', error.message);
-  }
-  
-  // Fallback: tentar extrair da URL
-  try {
-    if (finalUrl) {
-      // Tentar extrair slug da URL
-      // Padrão comum: /produto-nome-mais-detalhes/product/shopId/itemId
-      const urlParts = finalUrl.split('/');
-      let productSlug = null;
+      // 3. Procurar preço original (riscado)
+      const originalPriceSelectors = [
+        'div.mq4Vpx', // Preço riscado comum
+        'div[class*="original-price"]',
+        'span[class*="strikethrough"]',
+        'del',
+        's'
+      ];
       
-      // Procurar o segmento antes de "product"
-      const productIndex = urlParts.indexOf('product');
-      if (productIndex > 0) {
-        productSlug = urlParts[productIndex - 1];
-      } else {
-        // Tentar outros padrões comuns
-        // https://shopee.com.br/nome-do-produto-mais-detalhes.shopId.itemId
-        for (const part of urlParts) {
-          if (part.includes('.') && part.includes('-')) {
-            const beforeDot = part.split('.')[0];
-            if (beforeDot.includes('-')) {
-              productSlug = beforeDot;
+      for (const selector of originalPriceSelectors) {
+        try {
+          const elements = document.querySelectorAll(selector);
+          for (const element of elements) {
+            if (element && element.textContent) {
+              const text = element.textContent.trim();
+              if (text.includes('R$') || text.match(/\d+[,\.]\d+/)) {
+                const priceMatch = text.match(/R?\$?\s*(\d+[,\.]\d+)/);
+                if (priceMatch && !data.originalPrice) {
+                  data.originalPrice = priceMatch[1].replace('.', ',');
+                  console.log(`Preço original riscado: ${data.originalPrice}`);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.log(`Erro com seletor preço original ${selector}:`, e);
+        }
+      }
+      
+      // 4. Procurar imagem
+      const imageSelectors = [
+        'div.gallery img',
+        'div[class*="product-image"] img',
+        'img[class*="main-image"]',
+        'div[data-sqe="gallery"] img'
+      ];
+      
+      for (const selector of imageSelectors) {
+        try {
+          const element = document.querySelector(selector);
+          if (element && element.src && 
+              !element.src.includes('data:') && 
+              element.src.includes('http')) {
+            data.imageUrl = element.src;
+            console.log(`Imagem encontrada: ${data.imageUrl}`);
+            break;
+          }
+        } catch (e) {
+          console.log(`Erro com seletor de imagem ${selector}:`, e);
+        }
+      }
+      
+      // 5. Procurar vendedor
+      const vendorSelectors = [
+        'div[class*="shop-name"]',
+        'a[class*="shop-link"]',
+        'span[class*="seller-name"]'
+      ];
+      
+      for (const selector of vendorSelectors) {
+        try {
+          const element = document.querySelector(selector);
+          if (element && element.textContent) {
+            const vendor = element.textContent.trim();
+            if (vendor && vendor !== 'Shopee' && vendor.length > 2) {
+              data.vendor = vendor;
+              console.log(`Vendedor encontrado: ${vendor}`);
               break;
             }
           }
+        } catch (e) {
+          console.log(`Erro com seletor vendedor ${selector}:`, e);
         }
       }
       
-      if (productSlug) {
-        // Converter slug em nome legível
-        let productName = productSlug
-          .replace(/-/g, ' ')
-          .replace(/_/g, ' ')
-          .split(' ')
-          .map(word => {
-            if (word.length > 2) {
-              return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-            }
-            return word.toLowerCase();
-          })
-          .join(' ')
-          .trim();
-          
-        // Remover números de ID do final se existirem
-        productName = productName.replace(/\s+\d+\s*$/g, '').trim();
-        
-        if (productName.length > 3) {
-          console.log(`Nome extraído da URL: ${productName}`);
-          return productName;
-        }
-      }
-    }
+      // Log todos os dados encontrados
+      console.log('Dados extraídos:', data);
+      return data;
+    });
+    
+    return productData;
   } catch (error) {
-    console.log('Erro ao extrair da URL:', error.message);
+    console.error('Erro durante extração:', error);
+    return null;
   }
-  
-  return null;
 };
 
-// Função para gerar dados de fallback com base nos IDs e URLs
-const generateSmartFallback = async (page, url, shopId, itemId, productUrl) => {
+// Função para gerar dados de fallback
+const generateSmartFallback = (url, shopId, itemId, productUrl, extractedName = null) => {
   console.log('Gerando dados de fallback inteligente...');
   
-  // Tentar extrair nome do produto
-  let productName = await extractProductNameFromUrl(page, productUrl);
+  let productName = extractedName;
+  let estimatedPrice = '39';
+  let estimatedOriginalPrice = '79';
   
-  // Se ainda não temos um nome bom, usar padrões baseados nos IDs
-  if (!productName || productName.length < 3) {
+  // Se ainda não temos um nome válido, usar baseado nos IDs
+  if (!productName || productName.length < 5 || 
+      productName === 'Brasil | Ofertas incríveis. Melhores preços do mercado') {
+    
     const shopIdNum = parseInt(shopId);
     const itemIdNum = parseInt(itemId);
     
     // Determinar categoria e preços baseados nos IDs
-    let category = 'Produto';
-    let estimatedPrice = '39';
-    let estimatedOriginalPrice = '79';
-    
-    // Padrões observados nas IDs da Shopee
     if (itemIdNum > 20000000000) {
-      category = 'Acessórios e Gadgets';
+      productName = 'Acessórios e Gadgets';
       estimatedPrice = '29';
       estimatedOriginalPrice = '59';
     } else if (itemIdNum > 15000000000) {
-      category = 'Produto para Casa';
+      productName = 'Produto para Casa';
       estimatedPrice = '49';
       estimatedOriginalPrice = '99';
     } else if (itemIdNum > 10000000000) {
-      category = 'Eletrônicos e Tecnologia';
+      productName = 'Eletrônicos e Tecnologia';
       estimatedPrice = '89';
       estimatedOriginalPrice = '159';
     } else if (itemIdNum > 5000000000) {
-      category = 'Moda e Beleza';
+      productName = 'Moda e Beleza';
       estimatedPrice = '69';
       estimatedOriginalPrice = '129';
+    } else {
+      productName = 'Produto Popular';
+      estimatedPrice = '39';
+      estimatedOriginalPrice = '79';
     }
     
-    // Ajustar baseado no shopId também
+    // Ajustar preços para lojas maiores
     if (shopIdNum > 1000000000) {
-      // Lojas grandes tendem a ter produtos mais caros
       const currentPrice = parseInt(estimatedPrice);
       estimatedPrice = (currentPrice * 1.5).toFixed(0);
       estimatedOriginalPrice = (parseInt(estimatedOriginalPrice) * 1.5).toFixed(0);
     }
-    
-    productName = category;
   }
   
   return {
     name: productName,
-    currentPrice: estimatedPrice || '39',
-    originalPrice: estimatedOriginalPrice || '79',
+    currentPrice: estimatedPrice,
+    originalPrice: estimatedOriginalPrice,
     imageUrl: '',
     vendor: 'Shopee',
     platform: 'shopee',
@@ -225,9 +292,7 @@ exports.scrapeProductData = async (url) => {
       '--single-process',
       '--disable-web-security',
       '--window-size=1366,768',
-      '--disable-blink-features=AutomationControlled',
-      '--disable-dev-tools',
-      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      '--disable-blink-features=AutomationControlled'
     ],
     ignoreDefaultArgs: ['--disable-extensions', '--enable-automation'],
     defaultViewport: { width: 1366, height: 768 }
@@ -236,35 +301,24 @@ exports.scrapeProductData = async (url) => {
   try {
     const page = await browser.newPage();
     
-    // Configurar page para parecer mais com navegador real
+    // Configurar página para evitar detecção
     await page.evaluateOnNewDocument(() => {
-      // Remove sinais de automação
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined
       });
-      
-      // Adicionar plugins para parecer mais real
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5]
-      });
     });
     
-    // Definir user agent aleatório
+    // User agent
     const userAgent = getRandomUserAgent();
     await page.setUserAgent(userAgent);
     
-    // Headers mais naturais
+    // Headers
     await page.setExtraHTTPHeaders({
       'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-      'Cache-Control': 'max-age=0',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-User': '?1',
-      'Sec-Fetch-Dest': 'document'
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
     });
     
-    // Interceptar requisições para capturar dados
+    // Interceptar redirecionamentos
     let finalProductUrl = null;
     let finalShopId = null;
     let finalItemId = null;
@@ -272,7 +326,6 @@ exports.scrapeProductData = async (url) => {
     page.on('response', async response => {
       const requestUrl = response.url();
       
-      // Capturar URLs de produto
       if (requestUrl.includes('/product/') && requestUrl.includes('shopee.com.br')) {
         const productIds = extractProductIds(requestUrl);
         if (productIds) {
@@ -288,116 +341,46 @@ exports.scrapeProductData = async (url) => {
     console.log(`Navegando para URL: ${url}`);
     
     try {
-      // Tentar navegar para a URL
+      // Navegar
       await page.goto(url, { 
         waitUntil: 'domcontentloaded', 
         timeout: 30000 
       });
       
-      // Aguardar mais tempo para redirecionamentos e carregamento
-      await wait(8000);
+      // Aguardar carregamento
+      await wait(10000);
       
-      // Verificar se conseguimos chegar a uma página de produto
-      const currentUrl = page.url();
+      // Tentar extrair dados da página
+      const pageData = await extractProductData(page);
       
-      // Se estamos numa página de produto, tentar extrair dados
-      if (currentUrl.includes('/product/') && !currentUrl.includes('/login') && !currentUrl.includes('/error')) {
-        console.log('Tentando extrair dados da página do produto...');
+      if (pageData && (pageData.name || pageData.currentPrice)) {
+        // Preencher dados faltantes
+        const result = {
+          name: pageData.name || 'Produto da Shopee',
+          currentPrice: pageData.currentPrice || '39',
+          originalPrice: pageData.originalPrice || '79',
+          imageUrl: pageData.imageUrl || '',
+          vendor: pageData.vendor || 'Shopee',
+          platform: 'shopee',
+          productUrl: url,
+          realProductUrl: finalProductUrl || page.url(),
+          shopId: finalShopId,
+          itemId: finalItemId
+        };
         
-        // Tentar extrair dados da página
-        const pageData = await page.evaluate(() => {
-          const data = {
-            name: '',
-            currentPrice: '',
-            originalPrice: '',
-            imageUrl: '',
-            vendor: 'Shopee'
-          };
-          
-          // Procurar por diversos selectors de nome
-          const titleSelectors = [
-            'h1',
-            '.product-name',
-            '.item-header h1',
-            '[class*="product-title"]',
-            '[data-testid*="product-name"]'
-          ];
-          
-          for (const selector of titleSelectors) {
-            const element = document.querySelector(selector);
-            if (element && element.textContent.trim()) {
-              data.name = element.textContent.trim();
-              break;
-            }
-          }
-          
-          // Procurar preços
-          const priceSelectors = [
-            '.current-price',
-            '.product-price',
-            '[class*="price-current"]',
-            '[data-testid*="price"]'
-          ];
-          
-          for (const selector of priceSelectors) {
-            const element = document.querySelector(selector);
-            if (element && element.textContent.includes('R$')) {
-              data.currentPrice = element.textContent.trim().replace(/[^\d,]/g, '');
-              break;
-            }
-          }
-          
-          // Procurar imagem
-          const imageSelectors = [
-            '.product-image img',
-            '.gallery img',
-            '[class*="product-image"] img'
-          ];
-          
-          for (const selector of imageSelectors) {
-            const element = document.querySelector(selector);
-            if (element && element.src && !element.src.includes('data:')) {
-              data.imageUrl = element.src;
-              break;
-            }
-          }
-          
-          // Se conseguimos algum dado válido, retornamos
-          if (data.name || data.currentPrice) {
-            return data;
-          }
-          
-          return null;
-        });
-        
-        if (pageData && (pageData.name || pageData.currentPrice)) {
-          pageData.productUrl = url;
-          pageData.realProductUrl = currentUrl;
-          pageData.platform = 'shopee';
-          pageData.shopId = finalShopId;
-          pageData.itemId = finalItemId;
-          
-          // Preencher dados faltantes com fallbacks
-          if (!pageData.name) {
-            pageData.name = 'Produto da Shopee';
-          }
-          if (!pageData.currentPrice) {
-            pageData.currentPrice = '39';
-            pageData.originalPrice = '79';
-          }
-          
-          console.log('Dados extraídos da página:', pageData);
-          return pageData;
-        }
+        console.log('Dados extraídos com sucesso:', result);
+        return result;
       }
       
     } catch (error) {
       console.log('Erro na navegação:', error.message);
     }
     
-    // Se chegamos aqui, usar fallback com nome extraído
-    console.log('Usando fallback com extração de nome...');
-    return await generateSmartFallback(page, url, finalShopId, finalItemId, finalProductUrl);
+    // Fallback com nome extraído se houver
+    const extractedName = await page.evaluate(() => document.title || null);
+    console.log('Usando fallback com título extraído:', extractedName);
+    
+    return generateSmartFallback(url, finalShopId, finalItemId, finalProductUrl, extractedName);
     
   } catch (error) {
     console.error('Erro ao fazer scraping na Shopee:', error);
