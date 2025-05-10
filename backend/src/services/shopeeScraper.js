@@ -1,6 +1,6 @@
 // backend/src/services/shopeeScraper.js
 const puppeteer = require('puppeteer');
-const axios = require('axios');
+const https = require('https');
 
 // Função auxiliar para substituir waitForTimeout
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -33,6 +33,44 @@ const extractProductIds = (url) => {
   return null;
 };
 
+// Função para fazer requisição HTTP nativa
+const makeHttpRequest = (url, headers) => {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: headers,
+      timeout: 15000
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const jsonData = JSON.parse(data);
+          resolve(jsonData);
+        } catch (error) {
+          reject(new Error('Erro ao fazer parse da resposta JSON'));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.end();
+  });
+};
+
 // Função para fazer requisição para a API da Shopee
 const fetchFromShopeeAPI = async (shopId, itemId, userAgent) => {
   try {
@@ -40,20 +78,19 @@ const fetchFromShopeeAPI = async (shopId, itemId, userAgent) => {
     
     const apiUrl = `https://shopee.com.br/api/v4/item/get?itemid=${itemId}&shopid=${shopId}`;
     
-    const response = await axios.get(apiUrl, {
-      headers: {
-        'User-Agent': userAgent,
-        'Accept': 'application/json',
-        'Accept-Language': 'pt-BR,pt;q=0.9',
-        'Referer': `https://shopee.com.br/product/${shopId}/${itemId}`,
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      timeout: 15000
-    });
+    const headers = {
+      'User-Agent': userAgent,
+      'Accept': 'application/json',
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+      'Referer': `https://shopee.com.br/product/${shopId}/${itemId}`,
+      'X-Requested-With': 'XMLHttpRequest'
+    };
     
-    if (response.data && response.data.data && response.data.data.item) {
-      const item = response.data.data.item;
-      const shop = response.data.data.shop || {};
+    const response = await makeHttpRequest(apiUrl, headers);
+    
+    if (response && response.data && response.data.item) {
+      const item = response.data.item;
+      const shop = response.data.shop || {};
       
       // Converter preços (Shopee usa preços em centavos)
       let currentPrice = '';
