@@ -65,28 +65,18 @@ exports.scrapeProduct = async (req, res) => {
     
     if (isShopeeAffiliate) {
       console.log('Link da Shopee detectado. Usando scraper direto.');
-      try {
-        const productData = await shopeeScraper.scrapeProductData(url);
-        productData.productUrl = url;
-        console.log('Dados do produto extraídos com sucesso:', productData);
-        return res.json(productData);
-      } catch (shopeeError) {
-        console.error('Erro específico da Shopee:', shopeeError.message);
-        
-        // Se é um erro específico da Shopee sobre produto não encontrado
-        if (shopeeError.message.includes('Produto não encontrado')) {
-          return res.status(404).json({ 
-            error: 'Produto da Shopee não encontrado', 
-            details: 'O link de afiliado não está funcionando corretamente ou o produto não existe mais. A Shopee pode estar bloqueando o acesso automatizado. Tente acessar o link manualmente para verificar se ele está funcionando.'
-          });
-        }
-        
-        // Outros erros da Shopee
-        return res.status(500).json({ 
-          error: 'Erro ao acessar produto na Shopee', 
-          details: 'A Shopee está bloqueando o acesso automatizado. Aguarde alguns minutos e tente novamente ou use o link direto.'
-        });
+      
+      // Para Shopee, sempre retornamos os dados mesmo que sejam limitados
+      const productData = await shopeeScraper.scrapeProductData(url);
+      productData.productUrl = url;
+      console.log('Dados do produto extraídos com sucesso:', productData);
+      
+      // Se é um placeholder, indicamos na resposta mas não tratamos como erro
+      if (productData.isPlaceholder) {
+        console.log('Dados limitados da Shopee - usando fallback');
       }
+      
+      return res.json(productData);
     }
     
     // Para outros links, resolver URL e determinar qual scraper usar
@@ -124,14 +114,11 @@ exports.scrapeProduct = async (req, res) => {
       resolvedUrl.includes('shopee.com.br')
     ) {
       console.log('Usando Shopee Scraper');
-      try {
-        productData = await shopeeScraper.scrapeProductData(resolvedUrl);
-      } catch (shopeeError) {
-        console.error('Erro específico da Shopee:', shopeeError.message);
-        return res.status(500).json({ 
-          error: 'Erro ao acessar produto na Shopee', 
-          details: 'A Shopee está bloqueando o acesso automatizado. Aguarde alguns minutos e tente novamente ou use o link direto.'
-        });
+      productData = await shopeeScraper.scrapeProductData(resolvedUrl);
+      
+      // Para Shopee, mesmo com dados limitados, continuamos
+      if (productData.isPlaceholder) {
+        console.log('Dados limitados da Shopee - usando fallback');
       }
     } else {
       return res.status(400).json({ error: 'URL não suportada. Apenas Amazon, Mercado Livre, Centauro, Netshoes, Nike e Shopee são suportados.' });
