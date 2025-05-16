@@ -22,10 +22,10 @@ exports.generateImage = async (prompt, apiKey, productData) => {
       enhancedPrompt = `${prompt} | Produto: ${productData.name}`;
     }
     
-    // URL da API Gemini para geração de imagens
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
+    // URL da API Gemini para geração de imagens - ATUALIZADA para usar o modelo gemini-1.5-flash
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
-    // Preparar payload para a API
+    // Preparar payload para a API - Modificado para incluir os parâmetros corretos para o modelo atualizado
     const payload = {
       contents: [
         {
@@ -38,7 +38,9 @@ exports.generateImage = async (prompt, apiKey, productData) => {
         temperature: 0.7,
         topP: 0.95,
         topK: 64,
-        maxOutputTokens: 8192
+        maxOutputTokens: 8192,
+        responseStreamingEnabled: false,
+        responseMediaType: "image/jpeg" // Especificando explicitamente o tipo de mídia da resposta
       }
     };
     
@@ -95,8 +97,9 @@ exports.generateImage = async (prompt, apiKey, productData) => {
       }
     }
     
-    // Falha ao encontrar dados de imagem na resposta
     console.error('Falha ao extrair imagem da resposta do Gemini');
+    console.error('Resposta recebida:', JSON.stringify(response.data, null, 2));
+    
     return {
       success: false,
       error: 'Não foi possível gerar a imagem. O modelo não retornou uma imagem válida.'
