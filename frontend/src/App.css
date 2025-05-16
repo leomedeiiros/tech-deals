@@ -633,3 +633,76 @@ body {
   color: var(--text-secondary);
   font-size: 0.85rem;
 }
+/* Novos estilos para Processamento em Lote */
+.batch-results {
+  border-top: 1px solid var(--border-color);
+  padding-top: 15px;
+}
+
+.batch-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.batch-results-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--input-bg);
+}
+
+.batch-result-item {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.batch-result-item:last-child {
+  border-bottom: none;
+}
+
+.batch-progress-bar {
+  height: 8px;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+  margin-top: 5px;
+}
+
+/* Destaque para novas funcionalidades */
+.optional-tag {
+  font-size: 0.7rem;
+  background-color: var(--optional-tag);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  display: inline-block;
+}
+
+textarea.form-input {
+  min-height: 120px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* Melhorias na aparência dos botões na lista de resultados */
+.batch-result-item .btn-sm {
+  font-size: 0.8rem;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.batch-result-item .btn-sm:hover {
+  background-color: var(--primary-hover);
+}
