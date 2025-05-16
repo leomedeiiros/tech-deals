@@ -1,7 +1,7 @@
 // frontend/src/services/api.js
 import axios from 'axios';
 
-import { API_BASE_URL } from '../config';  // Mudança aqui: subindo um nível na hierarquia
+import { API_BASE_URL } from '../config';
 
 export const scrapeProduct = async (url) => {
   try {
@@ -37,15 +37,60 @@ export const sendWhatsAppMessage = async (message, chatName) => {
   }
 };
 
-export const generateAIImage = async (prompt, apiKey, productData) => {
+// Nova função para geração de título divertido (substitui a anterior de imagem)
+export const generateTitle = async (prompt, apiKey, productData) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/generate-ai-image`, {
-      prompt,
-      apiKey,
-      productData
+    // Criar um prompt mais específico baseado no produto
+    const fullPrompt = `Crie um título divertido, criativo e curto (máximo 50 caracteres) para um anúncio de produto no WhatsApp. 
+    O produto é: ${productData.name}. 
+    O título deve ser algo que chame atenção e seja humorístico, similar a estes exemplos: 
+    "UNICO VEICULO QUE CONSIGO COMPRAR" para uma bicicleta,
+    "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" para uma TV,
+    "O UNICO TIGRINHO QUE VIRA INVESTIR" para cuecas da Puma.
+    Use LETRAS MAIÚSCULAS para todo o título.
+    Responda APENAS com o título, sem nenhum texto adicional.
+    ${prompt ? `Considerações adicionais: ${prompt}` : ''}`;
+    
+    // Chamada direta para a API Gemini
+    const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+      contents: [{ parts: [{ text: fullPrompt }] }],
+      generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: 50
+      }
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      }
     });
-    return response.data;
+    
+    // Processar e retornar a resposta
+    if (response.data && 
+        response.data.candidates && 
+        response.data.candidates[0] && 
+        response.data.candidates[0].content &&
+        response.data.candidates[0].content.parts) {
+      
+      const generatedText = response.data.candidates[0].content.parts[0].text;
+      // Limpar e formatar o título (remover aspas, ajustar espaços)
+      const cleanTitle = generatedText.replace(/^["'\s]+|["'\s]+$/g, '');
+      
+      return {
+        success: true,
+        title: cleanTitle
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Não foi possível gerar um título.'
+      };
+    }
   } catch (error) {
-    throw error;
+    console.error('Erro ao gerar título com IA:', error);
+    return {
+      success: false,
+      error: error.response?.data?.error?.message || 'Falha ao gerar título.'
+    };
   }
 };

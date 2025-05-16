@@ -9,7 +9,109 @@ const generateUniqueFilename = () => {
   return crypto.randomBytes(16).toString('hex') + '.jpg';
 };
 
-// Função principal para gerar imagem através da API Imagen
+// Função para gerar título com IA 
+exports.generateTitle = async (prompt, apiKey, productData) => {
+  try {
+    console.log('Gerando título com API Gemini para o produto:', productData.name);
+    
+    // Construir um prompt otimizado
+    let enhancedPrompt = `Crie um título divertido, criativo e curto (máximo 50 caracteres) para um anúncio de produto no WhatsApp. 
+    O produto é: ${productData.name}. 
+    O título deve ser algo que chame atenção e seja humorístico, similar a estes exemplos: 
+    "UNICO VEICULO QUE CONSIGO COMPRAR" para uma bicicleta,
+    "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" para uma TV,
+    "O UNICO TIGRINHO QUE VIRA INVESTIR" para cuecas da Puma.
+    Use LETRAS MAIÚSCULAS para todo o título.
+    Responda APENAS com o título, sem nenhum texto adicional. ${prompt ? prompt : ''}`;
+    
+    // URL da API Gemini para texto
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+    
+    // Preparar payload para a API Gemini
+    const payload = {
+      contents: [
+        {
+          parts: [
+            { text: enhancedPrompt }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.9,
+        topP: 0.8,
+        topK: 32,
+        maxOutputTokens: 50
+      }
+    };
+    
+    console.log('Enviando requisição para API Gemini...');
+    
+    // Fazer requisição para a API
+    const response = await axios.post(apiUrl, payload, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Resposta recebida da API Gemini');
+    
+    // Verificar se a resposta contém texto
+    if (response.data && 
+        response.data.candidates && 
+        response.data.candidates[0] && 
+        response.data.candidates[0].content && 
+        response.data.candidates[0].content.parts) {
+      
+      const parts = response.data.candidates[0].content.parts;
+      
+      // Extrair texto da resposta
+      const textPart = parts.find(part => part.text);
+      if (textPart && textPart.text) {
+        const titleText = textPart.text.trim();
+        console.log('Título gerado:', titleText);
+        
+        return {
+          success: true,
+          title: titleText
+        };
+      }
+    }
+    
+    console.error('Falha ao extrair título da resposta da API Gemini');
+    console.error('Resposta recebida:', JSON.stringify(response.data, null, 2));
+    
+    return {
+      success: false,
+      error: 'Não foi possível gerar um título com a API.'
+    };
+    
+  } catch (error) {
+    console.error('Erro ao gerar título com API Gemini:', error);
+    
+    // Formatar mensagem de erro
+    let errorMessage = 'Falha ao gerar título com IA.';
+    
+    if (error.response) {
+      // O servidor respondeu com um código de status fora do intervalo 2xx
+      console.error('Erro na resposta:', error.response.data);
+      
+      // Verificar se há mensagem de erro específica da API
+      if (error.response.data && error.response.data.error) {
+        errorMessage = `Erro da API Gemini: ${error.response.data.error.message || 'Erro desconhecido'}`;
+      }
+    } else if (error.request) {
+      // A requisição foi feita mas não recebeu resposta
+      errorMessage = 'Sem resposta do servidor. Verifique sua conexão.';
+    }
+    
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+};
+
+// Manter a função original para geração de imagem (caso precise no futuro)
 exports.generateImage = async (prompt, apiKey, productData) => {
   try {
     console.log('Gerando imagem com API Imagen para o produto:', productData.name);

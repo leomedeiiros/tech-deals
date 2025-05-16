@@ -6,7 +6,7 @@ import './App.css';
 import LinkForm from './components/LinkForm';
 import MessagePreview from './components/MessagePreview';
 import { API_BASE_URL } from './config';  // Importando do lugar correto
-import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateAIImage } from './services/api';  // Caminho correto para serviços
+import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateTitle } from './services/api';
 
 function App() {
   // Carregar dados salvos do localStorage
@@ -42,10 +42,11 @@ function App() {
   const [batchSectionOpen, setBatchSectionOpen] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
   
-  // NOVO: Gemini API
+  // NOVO: API Gemini e títulos divertidos
   const [geminiApiKey, setGeminiApiKey] = useState(loadFromLocalStorage('geminiApiKey', 'AIzaSyAZQbdDzDs3shmUTLpB3v3kfE_CE6R8SLo'));
-  const [imagePrompt, setImagePrompt] = useState('');
-  const [generatingImage, setGeneratingImage] = useState(false);
+  const [generatedTitle, setGeneratedTitle] = useState('');
+  const [generatingTitle, setGeneratingTitle] = useState(false);
+  const [titlePrompt, setTitlePrompt] = useState('Gere um título divertido e criativo');
   const [aiImageSectionOpen, setAiImageSectionOpen] = useState(false);
 
   const [url, setUrl] = useState('');
@@ -338,46 +339,60 @@ function App() {
     }
   };
   
-  // NOVO: Handler para geração de imagem com IA
-  const handleGenerateAIImage = async () => {
-    if (!imagePrompt.trim()) {
-      setError('Por favor, insira um prompt para a geração de imagem.');
-      return;
-    }
+  // NOVO: Handler para geração de título divertido com IA
+ const handleGenerateTitle = async () => {
+  if (!titlePrompt.trim()) {
+    setError('Por favor, insira um prompt para a geração do título.');
+    return;
+  }
+  
+  if (!geminiApiKey.trim()) {
+    setError('Por favor, insira sua chave de API do Gemini.');
+    return;
+  }
+  
+  if (!productData) {
+    setError('Você precisa extrair os dados de um produto primeiro.');
+    return;
+  }
+  
+  try {
+    setGeneratingTitle(true);
+    setError('');
     
-    if (!geminiApiKey.trim()) {
-      setError('Por favor, insira sua chave de API do Gemini.');
-      return;
-    }
+    const response = await generateTitle(titlePrompt, geminiApiKey, productData);
     
-    if (!productData) {
-      setError('Você precisa extrair os dados de um produto primeiro.');
-      return;
-    }
-    
-    try {
-      setGeneratingImage(true);
-      setError('');
+    if (response.success) {
+      const cleanTitle = response.title;
+      setGeneratedTitle(cleanTitle);
       
-      const response = await generateAIImage(imagePrompt, geminiApiKey, productData);
-      
-      if (response.success) {
-        setCustomImage(response.imageUrl);
-        setImageFile(null); // Limpa o arquivo de imagem anterior
-        setImagePrompt(''); // Limpa o prompt após sucesso
-      } else {
-        setError(response.error || 'Falha ao gerar imagem com IA.');
+      // Atualizar a mensagem editável com o novo título
+      if (messagePreviewRef.current && finalMessage) {
+        let updatedMessage = finalMessage;
+        // Se já tiver um título em asteriscos, substituir; caso contrário, adicionar no início
+        if (updatedMessage.startsWith('*') && updatedMessage.includes('*\n')) {
+          // Substituir o título existente
+          updatedMessage = updatedMessage.replace(/^\*[^\n]*\*/, `*${cleanTitle}*`);
+        } else {
+          // Adicionar um novo título no início
+          updatedMessage = `*${cleanTitle}*\n\n` + updatedMessage;
+        }
+        setFinalMessage(updatedMessage);
+        messagePreviewRef.current.innerHTML = updatedMessage;
       }
-    } catch (error) {
-      console.error('Erro ao gerar imagem com IA:', error);
-      setError(
-        error.response?.data?.error ||
-        'Falha ao gerar imagem com IA. Verifique sua chave de API e tente novamente.'
-      );
-    } finally {
-      setGeneratingImage(false);
+    } else {
+      setError(response.error || 'Não foi possível gerar um título. Tente novamente.');
     }
-  };
+  } catch (error) {
+    console.error('Erro ao gerar título com IA:', error);
+    setError(
+      error.response?.data?.error?.message || 
+      'Falha ao gerar título. Verifique sua chave de API e tente novamente.'
+    );
+  } finally {
+    setGeneratingTitle(false);
+  }
+};
   
   // Função para remover a imagem personalizada
   const removeCustomImage = () => {
@@ -1045,11 +1060,11 @@ const shareWhatsApp = async () => {
           </div>
         )}
         
-        {/* Nova Seção: Gerar Imagem com IA */}
+        {/* Nova Seção: Criar Título Divertido */}
         <div className="section-header" onClick={() => toggleSection('aiImage')}>
           <div className="section-title">
             <i className="fas fa-robot"></i>
-            Gerar Imagem com IA
+            Criar Título Divertido
             <span className="optional-tag">Novo</span>
           </div>
           <div className="chevron-container" onClick={(e) => toggleSection('aiImage', e)}>
@@ -1066,20 +1081,20 @@ const shareWhatsApp = async () => {
                 setGeminiApiKey,
                 "Insira sua chave de API do Gemini"
               )}
-<p className="form-description" style={{ marginTop: '5px' }}>
+              <p className="form-description" style={{ marginTop: '5px' }}>
                 <i className="fas fa-info-circle"></i> Obtenha sua chave de API em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)' }}>Google AI Studio</a>
               </p>
             </div>
             
             <div className="form-group">
-              <label className="form-label">Prompt para Geração</label>
+              <label className="form-label">Instruções para o Título (Opcional)</label>
               <textarea 
                 className="form-input"
-                style={{ minHeight: '80px' }}
-                value={imagePrompt}
-                onChange={(e) => setImagePrompt(e.target.value)}
-                placeholder="Ex: Gere uma foto deste monitor em cima de uma mesa de PC gamer com iluminação RGB"
-                disabled={generatingImage}
+                style={{ minHeight: '60px' }}
+                value={titlePrompt}
+                onChange={(e) => setTitlePrompt(e.target.value)}
+                placeholder="Ex: Gere um título divertido e criativo"
+                disabled={generatingTitle}
               />
             </div>
             
@@ -1090,25 +1105,44 @@ const shareWhatsApp = async () => {
                 backgroundColor: 'var(--accent-color)',
                 position: 'relative'
               }}
-              onClick={handleGenerateAIImage}
-              disabled={generatingImage || !imagePrompt.trim() || !geminiApiKey.trim() || !productData}
+              onClick={handleGenerateTitle}
+              disabled={generatingTitle || !geminiApiKey.trim() || !productData}
             >
-              {generatingImage ? (
+              {generatingTitle ? (
                 <>
                   <div className="loading"></div>
-                  Gerando imagem...
+                  Gerando título...
                 </>
               ) : (
                 <>
-                  <i className="fas fa-magic"></i>
-                  Gerar Imagem com IA
+                  <i className="fas fa-lightbulb"></i>
+                  Gerar Título Divertido
                 </>
               )}
             </button>
             
+            {generatedTitle && (
+              <div style={{ 
+                marginTop: '15px', 
+                padding: '10px', 
+                backgroundColor: 'rgba(34, 197, 94, 0.1)', 
+                borderRadius: 'var(--border-radius)',
+                border: '1px solid var(--accent-color)'
+              }}>
+                <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>Título gerado:</p>
+                <p style={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '1.1rem',
+                  backgroundColor: 'rgba(0,0,0,0.05)',
+                  padding: '8px',
+                  borderRadius: '4px'
+                }}>{generatedTitle}</p>
+              </div>
+            )}
+            
             <div className="web-share-info" style={{ marginTop: '15px' }}>
               <p className="web-share-info-text">
-                <i className="fas fa-lightbulb"></i> Dica: Seja específico no prompt para obter os melhores resultados. Use termos como "fotografia profissional", "iluminação de estúdio", etc.
+                <i className="fas fa-lightbulb"></i> Dica: O título será adicionado automaticamente à sua mensagem. Você também pode editar a mensagem manualmente se preferir.
               </p>
             </div>
           </div>
