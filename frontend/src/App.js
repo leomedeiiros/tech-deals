@@ -5,6 +5,7 @@ import './App.css';
 import LinkForm from './components/LinkForm';
 import MessagePreview from './components/MessagePreview';
 import { API_BASE_URL } from './config';
+import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateAIImage } from './api';
 
 function App() {
   // Carregar dados salvos do localStorage
@@ -39,6 +40,12 @@ function App() {
   const [batchResults, setBatchResults] = useState([]);
   const [batchSectionOpen, setBatchSectionOpen] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
+  
+  // NOVO: Gemini API
+  const [geminiApiKey, setGeminiApiKey] = useState(loadFromLocalStorage('geminiApiKey', 'AIzaSyAZQbdDzDs3shmUTLpB3v3kfE_CE6R8SLo'));
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [aiImageSectionOpen, setAiImageSectionOpen] = useState(false);
 
   const [url, setUrl] = useState('');
   const [productData, setProductData] = useState(null);
@@ -83,6 +90,11 @@ function App() {
   useEffect(() => {
     saveToLocalStorage('recentDiscountValues', recentDiscountValues);
   }, [recentDiscountValues]);
+  
+  // NOVO: Salvar API key Gemini
+  useEffect(() => {
+    saveToLocalStorage('geminiApiKey', geminiApiKey);
+  }, [geminiApiKey]);
   
   // Função para adicionar ao histórico sem duplicar
   const addToHistory = (value, setter, currentArray, maxItems = 10) => {
@@ -244,11 +256,14 @@ function App() {
       case 'batch': // NOVO
         setBatchSectionOpen(!batchSectionOpen);
         break;
+      case 'aiImage': // NOVO
+        setAiImageSectionOpen(!aiImageSectionOpen);
+        break;
       default:
         break;
     }
   };
-  // Handler para cupom de desconto
+// Handler para cupom de desconto
   const handleCouponChange = (value) => {
     setCouponCode(value);
     if (value) {
@@ -304,14 +319,10 @@ function App() {
       setUploadingImage(true);
       setError('');
       
-      const response = await axios.post(`${API_BASE_URL}/api/upload-image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const response = await uploadImage(file);
       
-      if (response.data.success) {
-        setCustomImage(response.data.imageUrl);
+      if (response.success) {
+        setCustomImage(response.imageUrl);
       } else {
         setError('Erro ao fazer upload da imagem');
       }
@@ -323,6 +334,47 @@ function App() {
       );
     } finally {
       setUploadingImage(false);
+    }
+  };
+  
+  // NOVO: Handler para geração de imagem com IA
+  const handleGenerateAIImage = async () => {
+    if (!imagePrompt.trim()) {
+      setError('Por favor, insira um prompt para a geração de imagem.');
+      return;
+    }
+    
+    if (!geminiApiKey.trim()) {
+      setError('Por favor, insira sua chave de API do Gemini.');
+      return;
+    }
+    
+    if (!productData) {
+      setError('Você precisa extrair os dados de um produto primeiro.');
+      return;
+    }
+    
+    try {
+      setGeneratingImage(true);
+      setError('');
+      
+      const response = await generateAIImage(imagePrompt, geminiApiKey, productData);
+      
+      if (response.success) {
+        setCustomImage(response.imageUrl);
+        setImageFile(null); // Limpa o arquivo de imagem anterior
+        setImagePrompt(''); // Limpa o prompt após sucesso
+      } else {
+        setError(response.error || 'Falha ao gerar imagem com IA.');
+      }
+    } catch (error) {
+      console.error('Erro ao gerar imagem com IA:', error);
+      setError(
+        error.response?.data?.error ||
+        'Falha ao gerar imagem com IA. Verifique sua chave de API e tente novamente.'
+      );
+    } finally {
+      setGeneratingImage(false);
     }
   };
   
@@ -759,7 +811,7 @@ const shareWhatsApp = async () => {
     <div className="container">
       <header className="app-header">
         <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.6</span>
+        <span className="app-version">Versão 2.7</span>
       </header>
       
       <div className="main-card" ref={mainCardRef}>
@@ -768,7 +820,7 @@ const shareWhatsApp = async () => {
           <p className="card-subtitle">Crie mensagens atrativas para compartilhar promoções no WhatsApp</p>
         </div>
         
-{/* Seção de Informações da Promoção */}
+        {/* Seção de Informações da Promoção */}
         <div className="section-header" onClick={() => toggleSection('info')}>
           <div className="section-title">
             <i className="fas fa-link"></i>
@@ -988,6 +1040,75 @@ const shareWhatsApp = async () => {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+        
+        {/* Nova Seção: Gerar Imagem com IA */}
+        <div className="section-header" onClick={() => toggleSection('aiImage')}>
+          <div className="section-title">
+            <i className="fas fa-robot"></i>
+            Gerar Imagem com IA
+            <span className="optional-tag">Novo</span>
+          </div>
+          <div className="chevron-container" onClick={(e) => toggleSection('aiImage', e)}>
+            <i className={`fas fa-chevron-down chevron-icon ${aiImageSectionOpen ? 'open' : ''}`}></i>
+          </div>
+        </div>
+        
+        {aiImageSectionOpen && (
+          <div className="section-content">
+            <div className="form-group">
+              <label className="form-label">Chave da API Gemini</label>
+              {renderInputWithClear(
+                geminiApiKey,
+                setGeminiApiKey,
+                "Insira sua chave de API do Gemini"
+              )}
+<p className="form-description" style={{ marginTop: '5px' }}>
+                <i className="fas fa-info-circle"></i> Obtenha sua chave de API em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)' }}>Google AI Studio</a>
+              </p>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Prompt para Geração</label>
+              <textarea 
+                className="form-input"
+                style={{ minHeight: '80px' }}
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder="Ex: Gere uma foto deste monitor em cima de uma mesa de PC gamer com iluminação RGB"
+                disabled={generatingImage}
+              />
+            </div>
+            
+            <button 
+              className="btn"
+              style={{ 
+                width: '100%',
+                backgroundColor: 'var(--accent-color)',
+                position: 'relative'
+              }}
+              onClick={handleGenerateAIImage}
+              disabled={generatingImage || !imagePrompt.trim() || !geminiApiKey.trim() || !productData}
+            >
+              {generatingImage ? (
+                <>
+                  <div className="loading"></div>
+                  Gerando imagem...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-magic"></i>
+                  Gerar Imagem com IA
+                </>
+              )}
+            </button>
+            
+            <div className="web-share-info" style={{ marginTop: '15px' }}>
+              <p className="web-share-info-text">
+                <i className="fas fa-lightbulb"></i> Dica: Seja específico no prompt para obter os melhores resultados. Use termos como "fotografia profissional", "iluminação de estúdio", etc.
+              </p>
             </div>
           </div>
         )}

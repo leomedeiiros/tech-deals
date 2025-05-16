@@ -7,6 +7,7 @@ const nikeScraper = require('../services/nikeScraper');
 const shopeeScraper = require('../services/shopeeScraper');
 const linkResolver = require('../utils/linkResolver');
 const whatsappService = require('../services/whatsappService');
+const geminiService = require('../services/geminiService');
 
 exports.scrapeProduct = async (req, res) => {
   try {
@@ -155,5 +156,37 @@ exports.sendWhatsApp = async (req, res) => {
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
     res.status(500).json({ error: 'Falha ao enviar mensagem', details: error.message });
+  }
+};
+
+exports.generateAIImage = async (req, res) => {
+  try {
+    const { prompt, apiKey, productData } = req.body;
+    
+    if (!prompt || !apiKey || !productData) {
+      return res.status(400).json({ 
+        error: 'Prompt, chave de API e dados do produto são obrigatórios' 
+      });
+    }
+    
+    console.log(`Iniciando geração de imagem com prompt: "${prompt}"`);
+    
+    const result = await geminiService.generateImage(prompt, apiKey, productData);
+    
+    if (result.success) {
+      // Transformar URL relativa em URL completa
+      const baseUrl = req.protocol + '://' + req.get('host');
+      result.imageUrl = baseUrl + result.imageUrl;
+      
+      res.json(result);
+    } else {
+      res.status(500).json(result);
+    }
+  } catch (error) {
+    console.error('Erro ao gerar imagem com IA:', error);
+    res.status(500).json({ 
+      error: 'Falha ao gerar imagem com IA', 
+      details: error.message 
+    });
   }
 };

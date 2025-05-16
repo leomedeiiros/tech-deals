@@ -36,3 +36,16 @@ export const sendWhatsAppMessage = async (message, chatName) => {
     throw error;
   }
 };
+
+export const generateAIImage = async (prompt, apiKey, productData) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/generate-ai-image`, {
+      prompt,
+      apiKey,
+      productData
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
