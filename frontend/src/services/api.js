@@ -52,7 +52,7 @@ export const generateTitle = async (prompt, apiKey, productData) => {
     ${prompt ? `Considerações adicionais: ${prompt}` : ''}`;
     
     // Chamada direta para a API Gemini
-    const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+    const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
       contents: [{ parts: [{ text: fullPrompt }] }],
       generationConfig: {
         temperature: 0.9,
