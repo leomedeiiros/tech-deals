@@ -1,11 +1,12 @@
 // frontend/src/App.js
+// No topo do arquivo App.js
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 import LinkForm from './components/LinkForm';
 import MessagePreview from './components/MessagePreview';
-import { API_BASE_URL } from './config';
-import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateAIImage } from './services/api';
+import { API_BASE_URL } from './config';  // Importando do lugar correto
+import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateAIImage } from './services/api';  // Caminho correto para serviços
 
 function App() {
   // Carregar dados salvos do localStorage

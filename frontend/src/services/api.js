@@ -1,7 +1,7 @@
-// frontend/src/api.js
+// frontend/src/services/api.js
 import axios from 'axios';
 
-import { API_BASE_URL } from './config';
+import { API_BASE_URL } from '../config';  // Mudança aqui: subindo um nível na hierarquia
 
 export const scrapeProduct = async (url) => {
   try {
