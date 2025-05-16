@@ -358,7 +358,7 @@ function App() {
       ${titlePrompt ? titlePrompt : ''}`;
       
       // Chamada API para o Gemini Text
-      const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+      const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
         contents: [{ parts: [{ text: fullPrompt }] }],
         generationConfig: {
           temperature: 0.9,
