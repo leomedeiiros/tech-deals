@@ -5,7 +5,7 @@ import './App.css';
 import LinkForm from './components/LinkForm';
 import MessagePreview from './components/MessagePreview';
 import { API_BASE_URL } from './config';
-import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateAIImage } from './api';
+import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateAIImage } from './services/api';
 
 function App() {
   // Carregar dados salvos do localStorage
