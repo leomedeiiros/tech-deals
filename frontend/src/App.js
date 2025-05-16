@@ -6,7 +6,7 @@ import './App.css';
 import LinkForm from './components/LinkForm';
 import MessagePreview from './components/MessagePreview';
 import { API_BASE_URL } from './config';  // Importando do lugar correto
-import { scrapeProduct, uploadImage, sendWhatsAppMessage, generateTitle } from './services/api';
+import { scrapeProduct, uploadImage, sendWhatsAppMessage } from './services/api';  // Removi generateAIImage da importação
 
 function App() {
   // Carregar dados salvos do localStorage
@@ -43,7 +43,8 @@ function App() {
   const [batchProgress, setBatchProgress] = useState(0);
   
   // NOVO: API Gemini e títulos divertidos
-  const [geminiApiKey, setGeminiApiKey] = useState(loadFromLocalStorage('geminiApiKey', 'AIzaSyAZQbdDzDs3shmUTLpB3v3kfE_CE6R8SLo'));
+  // Token fixo para API Gemini - não precisa mais de estado ou input do usuário
+  const geminiApiKey = 'AIzaSyAZQbdDzDs3shmUTLpB3v3kfE_CE6R8SLo';
   const [generatedTitle, setGeneratedTitle] = useState('');
   const [generatingTitle, setGeneratingTitle] = useState(false);
   const [titlePrompt, setTitlePrompt] = useState('Gere um título divertido e criativo');
@@ -92,11 +93,6 @@ function App() {
   useEffect(() => {
     saveToLocalStorage('recentDiscountValues', recentDiscountValues);
   }, [recentDiscountValues]);
-  
-  // NOVO: Salvar API key Gemini
-  useEffect(() => {
-    saveToLocalStorage('geminiApiKey', geminiApiKey);
-  }, [geminiApiKey]);
   
   // Função para adicionar ao histórico sem duplicar
   const addToHistory = (value, setter, currentArray, maxItems = 10) => {
@@ -340,59 +336,88 @@ function App() {
   };
   
   // NOVO: Handler para geração de título divertido com IA
- const handleGenerateTitle = async () => {
-  if (!titlePrompt.trim()) {
-    setError('Por favor, insira um prompt para a geração do título.');
-    return;
-  }
-  
-  if (!geminiApiKey.trim()) {
-    setError('Por favor, insira sua chave de API do Gemini.');
-    return;
-  }
-  
-  if (!productData) {
-    setError('Você precisa extrair os dados de um produto primeiro.');
-    return;
-  }
-  
-  try {
-    setGeneratingTitle(true);
-    setError('');
-    
-    const response = await generateTitle(titlePrompt, geminiApiKey, productData);
-    
-    if (response.success) {
-      const cleanTitle = response.title;
-      setGeneratedTitle(cleanTitle);
-      
-      // Atualizar a mensagem editável com o novo título
-      if (messagePreviewRef.current && finalMessage) {
-        let updatedMessage = finalMessage;
-        // Se já tiver um título em asteriscos, substituir; caso contrário, adicionar no início
-        if (updatedMessage.startsWith('*') && updatedMessage.includes('*\n')) {
-          // Substituir o título existente
-          updatedMessage = updatedMessage.replace(/^\*[^\n]*\*/, `*${cleanTitle}*`);
-        } else {
-          // Adicionar um novo título no início
-          updatedMessage = `*${cleanTitle}*\n\n` + updatedMessage;
-        }
-        setFinalMessage(updatedMessage);
-        messagePreviewRef.current.innerHTML = updatedMessage;
-      }
-    } else {
-      setError(response.error || 'Não foi possível gerar um título. Tente novamente.');
+  const handleGenerateTitle = async () => {
+    if (!productData) {
+      setError('Você precisa extrair os dados de um produto primeiro.');
+      return;
     }
-  } catch (error) {
-    console.error('Erro ao gerar título com IA:', error);
-    setError(
-      error.response?.data?.error?.message || 
-      'Falha ao gerar título. Verifique sua chave de API e tente novamente.'
-    );
-  } finally {
-    setGeneratingTitle(false);
-  }
-};
+    
+    try {
+      setGeneratingTitle(true);
+      setError('');
+      
+      // Criando um prompt mais específico
+      const fullPrompt = `Crie um título divertido, criativo e curto (máximo 50 caracteres) para um anúncio de produto no WhatsApp. 
+      O produto é: ${productData.name}. 
+      O título deve ser algo que chame atenção e seja humorístico, similar a estes exemplos: 
+      "UNICO VEICULO QUE CONSIGO COMPRAR" para uma bicicleta,
+      "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" para uma TV,
+      "O UNICO TIGRINHO QUE VIRA INVESTIR" para cuecas da Puma.
+      Use LETRAS MAIÚSCULAS para todo o título.
+      Responda APENAS com o título, sem nenhum texto adicional.
+      ${titlePrompt ? titlePrompt : ''}`;
+      
+      // Chamada API para o Gemini Text
+      const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 50
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': geminiApiKey
+        }
+      });
+      
+      // Extrair o texto gerado 
+      if (response.data && 
+          response.data.candidates && 
+          response.data.candidates[0] && 
+          response.data.candidates[0].content &&
+          response.data.candidates[0].content.parts) {
+        
+        const generatedText = response.data.candidates[0].content.parts[0].text;
+        console.log("Título gerado:", generatedText);
+        
+        // Limpar e formatar o título (remover aspas, ajustar espaços)
+        const cleanTitle = generatedText.replace(/^["'\s]+|["'\s]+$/g, '');
+        
+        // Atualizar a mensagem final com o título
+        setGeneratedTitle(cleanTitle);
+        
+        // Atualizar a mensagem editável com o novo título
+        if (messagePreviewRef.current && finalMessage) {
+          let updatedMessage = finalMessage;
+          // Se já tiver um título em asteriscos ou itálico, substituir; caso contrário, adicionar no início
+          if (updatedMessage.startsWith('_') && updatedMessage.includes('_\n')) {
+            // Substituir o título existente
+            updatedMessage = updatedMessage.replace(/^_[^_\n]*_/, `_${cleanTitle}_`);
+          } else if (updatedMessage.startsWith('*') && updatedMessage.includes('*\n')) {
+            // Substituir o título existente (em negrito)
+            updatedMessage = `_${cleanTitle}_\n\n` + updatedMessage.substring(updatedMessage.indexOf('\n\n') + 2);
+          } else {
+            // Adicionar um novo título no início em itálico
+            updatedMessage = `_${cleanTitle}_\n\n` + updatedMessage;
+          }
+          setFinalMessage(updatedMessage);
+          messagePreviewRef.current.innerHTML = updatedMessage;
+        }
+        
+      } else {
+        setError('Não foi possível gerar um título. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao gerar título com IA:', error);
+      setError(
+        error.response?.data?.error?.message || 
+        'Falha ao gerar título. Verifique sua conexão e tente novamente.'
+      );
+    } finally {
+      setGeneratingTitle(false);
+    }
+  };
   
   // Função para remover a imagem personalizada
   const removeCustomImage = () => {
@@ -706,7 +731,7 @@ function App() {
     );
   };
   
- // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
+// Compartilhar mensagem e imagem no WhatsApp usando Web Share API
 const shareWhatsApp = async () => {
   if (!finalMessage) {
     setError('Nenhuma mensagem para compartilhar.');
@@ -1064,7 +1089,7 @@ const shareWhatsApp = async () => {
         <div className="section-header" onClick={() => toggleSection('aiImage')}>
           <div className="section-title">
             <i className="fas fa-robot"></i>
-            Criar Título Divertido
+            Criar Título Com IA
             <span className="optional-tag">Novo</span>
           </div>
           <div className="chevron-container" onClick={(e) => toggleSection('aiImage', e)}>
@@ -1075,19 +1100,7 @@ const shareWhatsApp = async () => {
         {aiImageSectionOpen && (
           <div className="section-content">
             <div className="form-group">
-              <label className="form-label">Chave da API Gemini</label>
-              {renderInputWithClear(
-                geminiApiKey,
-                setGeminiApiKey,
-                "Insira sua chave de API do Gemini"
-              )}
-              <p className="form-description" style={{ marginTop: '5px' }}>
-                <i className="fas fa-info-circle"></i> Obtenha sua chave de API em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)' }}>Google AI Studio</a>
-              </p>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Instruções para o Título (Opcional)</label>
+              <label className="form-label">Prompt para o Título (Opcional)</label>
               <textarea 
                 className="form-input"
                 style={{ minHeight: '60px' }}
@@ -1106,7 +1119,7 @@ const shareWhatsApp = async () => {
                 position: 'relative'
               }}
               onClick={handleGenerateTitle}
-              disabled={generatingTitle || !geminiApiKey.trim() || !productData}
+              disabled={generatingTitle || !productData}
             >
               {generatingTitle ? (
                 <>
@@ -1116,7 +1129,7 @@ const shareWhatsApp = async () => {
               ) : (
                 <>
                   <i className="fas fa-lightbulb"></i>
-                  Gerar Título Divertido
+                  Gerar Título
                 </>
               )}
             </button>
@@ -1132,6 +1145,7 @@ const shareWhatsApp = async () => {
                 <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>Título gerado:</p>
                 <p style={{ 
                   fontFamily: 'monospace', 
+                  fontStyle: 'italic',  // Alterado de 'bold' para 'italic'
                   fontSize: '1.1rem',
                   backgroundColor: 'rgba(0,0,0,0.05)',
                   padding: '8px',
@@ -1152,7 +1166,7 @@ const shareWhatsApp = async () => {
         <div className="section-header" onClick={() => toggleSection('batch')}>
           <div className="section-title">
             <i className="fas fa-tasks"></i>
-            Processamento em Lote
+            Gerar Mensagens em Lote
             <span className="optional-tag">Novo</span>
           </div>
           <div className="chevron-container" onClick={(e) => toggleSection('batch', e)}>
@@ -1173,7 +1187,7 @@ const shareWhatsApp = async () => {
                 style={{ minHeight: "120px" }}
                 value={batchLinks}
                 onChange={(e) => setBatchLinks(e.target.value)}
-                placeholder="Cole um link por linha...&#10;Ex:&#10;https://www.amazon.com.br/produto1&#10;https://www.mercadolivre.com.br/produto2"
+                placeholder="Cole um Link por linha&#10;Exemplo:&#10;https://amzn.to/3Zjf9kk&#10;https://mercadolivre.com/sec/2x3yNSP"
                 disabled={batchProcessing}
               />
               
