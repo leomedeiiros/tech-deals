@@ -28,22 +28,9 @@ exports.scrapeProductData = async (url) => {
   try {
     console.log(`[NIKE] Iniciando scraping para: ${url}`);
     
-    // Estratégias de browser para contornar bloqueios
+    // OTIMIZAÇÃO: Começar com desktop (Config 2) que funciona melhor
     const browserConfigs = [
-      // Configuração mobile (funciona melhor para Nike)
-      {
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-gpu',
-          '--disable-dev-shm-usage',
-          '--disable-web-security',
-          '--disable-blink-features=AutomationControlled',
-          '--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1'
-        ],
-        viewport: { width: 375, height: 667, isMobile: true }
-      },
-      // Configuração desktop normal
+      // Configuração desktop normal (funcionou melhor nos testes)
       {
         args: [
           '--no-sandbox',
@@ -66,17 +53,28 @@ exports.scrapeProductData = async (url) => {
           '--window-size=1366,768'
         ],
         viewport: { width: 1366, height: 768 }
+      },
+      // Configuração mobile (como fallback)
+      {
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-web-security',
+          '--disable-blink-features=AutomationControlled',
+          '--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1'
+        ],
+        viewport: { width: 375, height: 667, isMobile: true }
       }
     ];
     
-    // Estratégias de URL para tentar
+    // OTIMIZAÇÃO: URLs mais focadas, removendo a genérica que sempre falha
     const urlStrategies = [
       url,
       url.replace(/\?.*$/, ''), // Sem parâmetros
       url.replace(/&awc=.*$/, ''), // Sem tracking
-      url.replace(/\?cor=\d+/, ''), // Sem cor específica
-      // URL genérica se tudo falhar
-      `https://www.nike.com.br/tenis-air-jordan-1-low-masculino-016510.html`
+      url.replace(/\?cor=\d+/, '') // Sem cor específica
     ];
     
     let productData = null;
@@ -121,17 +119,18 @@ exports.scrapeProductData = async (url) => {
           try {
             console.log(`[NIKE] Testando: ${testUrl}`);
             
-            // Delay aleatório para parecer mais humano
-            await wait(Math.random() * 3000 + 2000);
+            // OTIMIZAÇÃO: Delay menor para tentar mais rápido
+            await wait(Math.random() * 2000 + 1000);
             
+            // OTIMIZAÇÃO: Timeout reduzido de 45s para 30s
             await page.goto(testUrl, { 
               waitUntil: 'domcontentloaded', 
-              timeout: 45000 
+              timeout: 30000 
             });
             
-            await wait(5000);
+            await wait(3000);
             
-            // Verificar se a página carregou corretamente
+            // OTIMIZAÇÃO: Verificação mais rápida do Access Denied
             const pageInfo = await page.evaluate(() => ({
               title: document.title,
               hasAccessDenied: document.body.textContent.includes('Access Denied'),
@@ -144,7 +143,13 @@ exports.scrapeProductData = async (url) => {
             
             console.log(`[NIKE] Página info:`, pageInfo);
             
-            if (!pageInfo.hasAccessDenied && !pageInfo.hasError && pageInfo.bodyLength > 5000) {
+            // OTIMIZAÇÃO: Parar imediatamente se Access Denied
+            if (pageInfo.hasAccessDenied) {
+              console.log(`[NIKE] Access Denied detectado, pulando para próxima URL...`);
+              continue;
+            }
+            
+            if (!pageInfo.hasError && pageInfo.bodyLength > 5000) {
               console.log(`[NIKE] ✅ Página válida encontrada!`);
               
               // Rolar a página para carregar conteúdo
@@ -241,7 +246,7 @@ async function extractProductData(page) {
       }
     }
     
-    // 2. CORREÇÃO: Usar os seletores específicos fornecidos
+    // 2. SELETORES DE PREÇO (baseados no debug que funcionou)
     
     // Seletor para preço original (antigo)
     const originalPriceElement = document.querySelector('.PriceBox-styled__OldPrice-sc-a09550db-3');
@@ -290,7 +295,7 @@ async function extractProductData(page) {
         const priceRegex = /R\$\s*(\d+[.,]\d+)/g;
         const matches = document.body.textContent.match(priceRegex);
         if (matches && matches.length > 0) {
-          // Filtrar preços válidos para tênis Nike (entre R$ 200 e R$ 2000)
+          // Filtrar preços válidos para produtos Nike (entre R$ 50 e R$ 2000)
           const validPrices = matches
             .map(match => {
               const price = cleanPrice(match);
@@ -299,7 +304,7 @@ async function extractProductData(page) {
                 value: parseFloat(price.replace(',', '.'))
               };
             })
-            .filter(p => p.value >= 200 && p.value <= 2000)
+            .filter(p => p.value >= 50 && p.value <= 2000)
             .sort((a, b) => a.value - b.value);
           
           if (validPrices.length > 0) {
@@ -393,6 +398,18 @@ function createAdvancedInferredData(url) {
       name: 'Tênis Nike Air Force 1',
       currentPrice: '799',
       originalPrice: '999'
+    };
+  } else if (urlLower.includes('court-royale')) {
+    productInfo = {
+      name: 'Tênis Nike Court Royale',
+      currentPrice: '275',
+      originalPrice: '499'
+    };
+  } else if (urlLower.includes('camiseta')) {
+    productInfo = {
+      name: 'Camiseta Nike Sportswear',
+      currentPrice: '75',
+      originalPrice: '129'
     };
   }
   
