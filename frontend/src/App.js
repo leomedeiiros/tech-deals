@@ -355,7 +355,7 @@ Use o estilo destes exemplos para se inspirar:
 - "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" (TV)
 - "O ÚNICO TIGRINHO QUE VALE INVESTIR" (cuecas da Puma)
 Regras importantes:
-- O título deve provocar curiosidade ou dar vontade de clicar.
+- O título deve provocar curiosidade ou dar vontade de clicar
 - Pode usar expressões populares, memes e referências do mundo gamer ou tech.
 - Responda APENAS com o título, sem nenhum texto adicional.`;
       
