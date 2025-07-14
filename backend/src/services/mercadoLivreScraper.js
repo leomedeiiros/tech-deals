@@ -50,7 +50,7 @@ exports.scrapeProductData = async (url) => {
         waitUntil: 'networkidle2', 
         timeout: 60000 
       });
-      await wait(4000); // Manter tempo adequado para links de afiliado
+      await wait(4000);
     } else {
       await page.goto(url, { 
         waitUntil: 'domcontentloaded', 
@@ -124,16 +124,13 @@ exports.scrapeProductData = async (url) => {
       }
     }
     
-    // Verificar se chegamos numa página de produto
+    // CORREÇÃO: Verificação mais flexível da página de produto
     const isProductPage = await page.evaluate(() => {
-      const currentUrl = window.location.href;
-      const isProductUrl = currentUrl.includes('produto.mercadolivre.com.br/MLB-') || 
-                          currentUrl.includes('mercadolivre.com.br/p/MLB');
-      
+      // Se tem título e preço do produto, é página de produto válida
       const hasProductElements = document.querySelector('.ui-pdp-title') !== null;
       const hasPriceElements = document.querySelector('.andes-money-amount') !== null;
       
-      return isProductUrl && hasProductElements && hasPriceElements;
+      return hasProductElements && hasPriceElements;
     });
     
     console.log(`É página de produto: ${isProductPage}`);
@@ -146,7 +143,7 @@ exports.scrapeProductData = async (url) => {
     await page.evaluate(() => window.scrollTo(0, 300));
     await wait(1000);
     
-    // Extrair dados do produto (mantendo a lógica original)
+    // Extrair dados do produto
     const productData = await page.evaluate(() => {
       const cleanPrice = (price) => {
         if (!price) return '';
