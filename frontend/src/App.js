@@ -1272,18 +1272,7 @@ https://mercadolivre.com/sec/2x3yN5P`}
             </div>
         )}
 
-        <div className="product-card">
-            <div className="product-name">{productData.name}</div>
-            <div className="product-details">
-                {productData.vendor && <span>{productData.vendor}<br/></span>}
-                {productData.originalPrice && productData.currentPrice && (
-                    <>
-                        <strong>Economia:</strong> R$ {Math.abs(parseFloat((productData.originalPrice || '0').replace(/\D/g, '')) - parseFloat((productData.currentPrice || '0').replace(/\D/g, '')))} <br/>
-                    </>
-                )}
-                <strong>Link:</strong> https://linktr.ee/techdealsbr
-            </div>
-        </div>
+        {/* REMOVIDO: product-card */}
 
         <div className="action-grid">
             <button 
