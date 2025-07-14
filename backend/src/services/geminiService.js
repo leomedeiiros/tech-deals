@@ -14,18 +14,22 @@ exports.generateTitle = async (prompt, apiKey, productData) => {
   try {
     console.log('Gerando título com API Gemini para o produto:', productData.name);
     
-    // Construir um prompt otimizado
-    let enhancedPrompt = `Crie um título divertido, criativo e curto (máximo 50 caracteres) para um anúncio de produto no WhatsApp. 
-    O produto é: ${productData.name}. 
-    O título deve ser algo que chame atenção e seja humorístico, similar a estes exemplos: 
-    "UNICO VEICULO QUE CONSIGO COMPRAR" para uma bicicleta,
-    "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" para uma TV,
-    "O UNICO TIGRINHO QUE VIRA INVESTIR" para cuecas da Puma.
-    Use LETRAS MAIÚSCULAS para todo o título.
-    Responda APENAS com o título, sem nenhum texto adicional. ${prompt ? prompt : ''}`;
+    // PROMPT CORRETO QUE VOCÊ MANDOU
+    let enhancedPrompt = `Você é um especialista em criar títulos curtos, criativos e humorísticos para anúncios de produtos no WhatsApp.
+Crie um título totalmente em LETRAS MAIÚSCULAS, com no máximo 50 caracteres, que seja chamativo, divertido e que possa ter duplo sentido ou brincar com memes, gírias e trocadilhos.
+O produto é: ${productData.name}.
+Use o estilo destes exemplos para se inspirar:
+- "ÚNICO VEÍCULO QUE CONSIGO COMPRAR" (bicicleta)
+- "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" (TV)
+- "O ÚNICO TIGRINHO QUE VALE INVESTIR" (cuecas da Puma)
+Regras importantes:
+- O título deve provocar curiosidade ou dar vontade de clicar.
+- Pode usar expressões populares, memes e referências do mundo gamer ou tech.
+- Responda APENAS com o título, sem nenhum texto adicional.
+${prompt ? prompt : ''}`;
     
     // URL da API Gemini para texto
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     
     // Preparar payload para a API Gemini
     const payload = {
@@ -38,8 +42,6 @@ exports.generateTitle = async (prompt, apiKey, productData) => {
       ],
       generationConfig: {
         temperature: 0.9,
-        topP: 0.8,
-        topK: 32,
         maxOutputTokens: 50
       }
     };

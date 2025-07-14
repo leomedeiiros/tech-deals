@@ -47,7 +47,6 @@ function App() {
   const geminiApiKey = 'AIzaSyAZQbdDzDs3shmUTLpB3v3kfE_CE6R8SLo';
   const [generatedTitle, setGeneratedTitle] = useState('');
   const [generatingTitle, setGeneratingTitle] = useState(false);
-  const [titlePrompt, setTitlePrompt] = useState('Gere um título divertido e criativo');
   const [aiImageSectionOpen, setAiImageSectionOpen] = useState(false);
 
   const [url, setUrl] = useState('');
@@ -261,7 +260,8 @@ function App() {
         break;
     }
   };
-// Handler para cupom de desconto
+
+  // Handler para cupom de desconto
   const handleCouponChange = (value) => {
     setCouponCode(value);
     if (value) {
@@ -346,20 +346,22 @@ function App() {
       setGeneratingTitle(true);
       setError('');
       
-      // Criando um prompt mais específico
-      const fullPrompt = `Crie um título divertido, criativo e curto (máximo 50 caracteres) para um anúncio de produto no WhatsApp. 
-      O produto é: ${productData.name}. 
-      O título deve ser algo que chame atenção e seja humorístico, similar a estes exemplos: 
-      "UNICO VEICULO QUE CONSIGO COMPRAR" para uma bicicleta,
-      "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" para uma TV,
-      "O UNICO TIGRINHO QUE VIRA INVESTIR" para cuecas da Puma.
-      Use LETRAS MAIÚSCULAS para todo o título.
-      Responda APENAS com o título, sem nenhum texto adicional.
-      ${titlePrompt ? titlePrompt : ''}`;
+      // Prompt chumbado e melhorado
+      const enhancedPrompt = `Você é um especialista em criar títulos curtos, criativos e humorísticos para anúncios de produtos no WhatsApp.
+Crie um título totalmente em LETRAS MAIÚSCULAS, com no máximo 50 caracteres, que seja chamativo, divertido e que possa ter duplo sentido ou brincar com memes, gírias e trocadilhos.
+O produto é: ${productData.name}.
+Use o estilo destes exemplos para se inspirar:
+- "ÚNICO VEÍCULO QUE CONSIGO COMPRAR" (bicicleta)
+- "NEO QLED DA SAMSUNG TEM QUALIDADE ABSURDA" (TV)
+- "O ÚNICO TIGRINHO QUE VALE INVESTIR" (cuecas da Puma)
+Regras importantes:
+- O título deve provocar curiosidade ou dar vontade de clicar.
+- Pode usar expressões populares, memes e referências do mundo gamer ou tech.
+- Responda APENAS com o título, sem nenhum texto adicional.`;
       
       // Chamada API para o Gemini Text
       const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
-        contents: [{ parts: [{ text: fullPrompt }] }],
+        contents: [{ parts: [{ text: enhancedPrompt }] }],
         generationConfig: {
           temperature: 0.9,
           maxOutputTokens: 50
@@ -731,688 +733,676 @@ function App() {
     );
   };
   
-// Compartilhar mensagem e imagem no WhatsApp usando Web Share API
-const shareWhatsApp = async () => {
-  if (!finalMessage) {
-    setError('Nenhuma mensagem para compartilhar.');
-    return;
-  }
-  
-  // Se estamos em modo de edição, desabilite primeiro para garantir que o conteúdo foi salvo
-  if (isEditing) {
-    disableEditing();
-  }
-
-  // Obter a mensagem atual (possivelmente editada)
-  const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
-  
-  // Tentar usar Web Share API se estiver disponível (para texto ou para arquivos)
-  if (navigator.share) {
-    try {
-      // Se tiver imagem, tenta compartilhar com ela
-      if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-        await navigator.share({
-          text: messageToShare,
-          files: [imageFile]
-        });
-      } else {
-        // Caso contrário, compartilha apenas o texto
-        await navigator.share({
-          text: messageToShare
-        });
-      }
-      return; // Se compartilhou com sucesso, encerra a função
-    } catch (err) {
-      console.warn('Compartilhamento falhou:', err);
-      // Continua para o fallback abaixo
+  // Compartilhar mensagem e imagem no WhatsApp usando Web Share API
+  const shareWhatsApp = async () => {
+    if (!finalMessage) {
+      setError('Nenhuma mensagem para compartilhar.');
+      return;
     }
-  }
-  
-  // Fallback para métodos tradicionais se Web Share API não estiver disponível ou falhar
-  // Verificar se é dispositivo móvel
-  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // Em dispositivos móveis, tentar abrir diretamente o app
-    const encodedMessage = encodeURIComponent(messageToShare);
-    window.location.href = `whatsapp://send?text=${encodedMessage}`;
     
-    // Como fallback, se após 1 segundo o usuário ainda estiver na página,
-    // redirecionar para o wa.me que funciona melhor em iOS
-    setTimeout(() => {
-      if (document.hasFocus()) {
-        window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
-      }
-    }, 1000);
-  } else {
-    // Em desktop, abrir o WhatsApp Web
-    window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(messageToShare)}`, '_blank');
-  }
-};
-  
-  // Copiar mensagem para o clipboard
-  const copyMessage = () => {
     // Se estamos em modo de edição, desabilite primeiro para garantir que o conteúdo foi salvo
     if (isEditing) {
       disableEditing();
     }
 
     // Obter a mensagem atual (possivelmente editada)
+
     const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
-    
-    if (!messageToShare) {
-      setError('Nenhuma mensagem para copiar.');
-      return;
-    }
-    
-    navigator.clipboard.writeText(messageToShare)
-      .then(() => {
-        setCopySuccess(true);
-        setTimeout(() => {
-          setCopySuccess(false);
-        }, 3000);
-      })
-      .catch((err) => {
-        console.error('Erro ao copiar: ', err);
-        setError('Falha ao copiar para a área de transferência');
-      });
-  };
+   
+   // Tentar usar Web Share API se estiver disponível (para texto ou para arquivos)
+   if (navigator.share) {
+     try {
+       // Se tiver imagem, tenta compartilhar com ela
+       if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+         await navigator.share({
+           text: messageToShare,
+           files: [imageFile]
+         });
+       } else {
+         // Caso contrário, compartilha apenas o texto
+         await navigator.share({
+           text: messageToShare
+         });
+       }
+       return; // Se compartilhou com sucesso, encerra a função
+     } catch (err) {
+       console.warn('Compartilhamento falhou:', err);
+       // Continua para o fallback abaixo
+     }
+   }
+   
+   // Fallback para métodos tradicionais se Web Share API não estiver disponível ou falhar
+   // Verificar se é dispositivo móvel
+   const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+   
+   if (isMobile) {
+     // Em dispositivos móveis, tentar abrir diretamente o app
+     const encodedMessage = encodeURIComponent(messageToShare);
+     window.location.href = `whatsapp://send?text=${encodedMessage}`;
+     
+     // Como fallback, se após 1 segundo o usuário ainda estiver na página,
+     // redirecionar para o wa.me que funciona melhor em iOS
+     setTimeout(() => {
+       if (document.hasFocus()) {
+         window.location.href = `https://api.whatsapp.com/send?text=${encodedMessage}`;
+       }
+     }, 1000);
+   } else {
+     // Em desktop, abrir o WhatsApp Web
+     window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(messageToShare)}`, '_blank');
+   }
+ };
+   
+   // Copiar mensagem para o clipboard
+   const copyMessage = () => {
+     // Se estamos em modo de edição, desabilite primeiro para garantir que o conteúdo foi salvo
+     if (isEditing) {
+       disableEditing();
+     }
 
-  // Função para extrair dados do produto
-  const handleExtract = async () => {
-    const inputEl = document.querySelector('input[type="url"]');
-    if (!inputEl || !inputEl.value) {
-      setError('Por favor, insira um link de afiliado.');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError('');
-      
-      // URL correta do backend no Render
-      const response = await axios.post(`${API_BASE_URL}/api/scrape`, { 
-        url: inputEl.value 
-      });
-      
-      // Passar os dados do produto e a URL usada para processamento
-      handleProductDataReceived(response.data, inputEl.value);
-    } catch (error) {
-      console.error('Erro ao obter dados do produto:', error);
-      setError(
-        error.response?.data?.error ||
-        'Falha ao obter dados do produto. Verifique o link e tente novamente.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  return (
-    <div className="container">
-      <header className="app-header">
-        <h1 className="app-title">GeraPromo</h1>
-        <span className="app-version">Versão 2.7</span>
-      </header>
-      
-      <div className="main-card" ref={mainCardRef}>
-        <div className="card-header">
-          <h2 className="card-title">Gerador de Mensagens Promocionais</h2>
-          <p className="card-subtitle">Crie mensagens atrativas para compartilhar promoções no WhatsApp</p>
-        </div>
-        
-        {/* Seção de Informações da Promoção */}
-        <div className="section-header" onClick={() => toggleSection('info')}>
-          <div className="section-title">
-            <i className="fas fa-link"></i>
-            Informações da Promoção
-          </div>
-          <div className="chevron-container" onClick={(e) => toggleSection('info', e)}>
-            <i className={`fas fa-chevron-down chevron-icon ${infoSectionOpen ? 'open' : ''}`}></i>
-          </div>
-        </div>
-        
-        {infoSectionOpen && (
-          <div className="section-content">
-            <div className="form-group">
-              <label className="form-label">Link da promoção</label>
-              <div className="input-clear-wrapper">
-                <input
-                  type="url"
-                  className="form-input"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="Cole o link da Amazon ou Mercado Livre"
-                  list="url-history"
-                />
-                {recentLinks && recentLinks.length > 0 && (
-                  <datalist id="url-history">
-                    {recentLinks.map((link, index) => (
-                      <option key={index} value={link} />
-                    ))}
-                  </datalist>
-                )}
-                {url && (
-                  <button 
-                    className="clear-input-btn" 
-                    onClick={() => setUrl('')}
-                    type="button"
-                  >
-                    <i className="fas fa-times"></i>
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
-              {renderInputWithClear(
-                couponCode, 
-                handleCouponChange, 
-                "Insira um cupom de desconto", 
-                "text", 
-                "coupon-history", 
-                recentCoupons
-              )}
-            </div>
-            
-            <div className="discount-fields-grid">
-              <div className="form-group">
-                <label className="form-label">
-                  <i className="fas fa-percent"></i> Desconto % <span className="optional-tag">Opcional</span>
-                </label>
-                {renderInputWithClear(
-                  discountPercentage, 
-                  handleDiscountChange, 
-                  "Ex: 20 (sem o símbolo %)", 
-                  "number", 
-                  "discount-history", 
-                  recentDiscounts
-                )}
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">
-                  <i className="fas fa-dollar-sign"></i> Desconto em R$ <span className="optional-tag">Opcional</span>
-                </label>
-                {renderInputWithClear(
-                  discountValue, 
-                  handleDiscountValueChange, 
-                  "Ex: 50", 
-                  "number", 
-                  "discount-value-history", 
-                  recentDiscountValues
-                )}
-              </div>
-            </div>
-            
-            {(discountPercentage && discountValue) && (
-              <div className="discount-warning">
-                <i className="fas fa-exclamation-triangle"></i> Atenção: Use apenas um tipo de desconto por vez.
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Seção de Tipo de Loja */}
-        <div className="section-header" onClick={() => toggleSection('store')}>
-          <div className="section-title">
-            <i className="fas fa-store"></i>
-            Tipo de Loja
-          </div>
-          <div className="chevron-container" onClick={(e) => toggleSection('store', e)}>
-            <i className={`fas fa-chevron-down chevron-icon ${storeSectionOpen ? 'open' : ''}`}></i>
-          </div>
-        </div>
+     // Obter a mensagem atual (possivelmente editada)
+     const messageToShare = messagePreviewRef.current ? messagePreviewRef.current.innerText : finalMessage;
+     
+     if (!messageToShare) {
+       setError('Nenhuma mensagem para copiar.');
+       return;
+     }
+     
+     navigator.clipboard.writeText(messageToShare)
+       .then(() => {
+         setCopySuccess(true);
+         setTimeout(() => {
+           setCopySuccess(false);
+         }, 3000);
+       })
+       .catch((err) => {
+         console.error('Erro ao copiar: ', err);
+         setError('Falha ao copiar para a área de transferência');
+       });
+   };
 
-        {storeSectionOpen && (
-          <div className="section-content">
-            <div className="store-type-group">
-              <button 
-                type="button"
-                className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
-                onClick={() => {
-                  setStoreType('amazon');
-                  console.log("Botão Amazon clicado, storeType =", 'amazon');
-                }}
-              >
-                <i className="fab fa-amazon"></i> Amazon
-              </button>
-              <button 
-                type="button"
-                className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
-                onClick={() => {
-                  setStoreType('loja_oficial');
-                  console.log("Botão Loja Oficial clicado, storeType =", 'loja_oficial');
-                }}
-              >
-                <i className="fas fa-check-circle"></i> Loja Oficial
-              </button>
-              <button 
-                type="button"
-                className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
-                onClick={() => {
-                  setStoreType('catalogo');
-                  console.log("Botão Catálogo clicado, storeType =", 'catalogo');
-                }}
-              >
-                <i className="fas fa-list"></i> Catálogo
-              </button>
-              <button 
-                type="button"
-                className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
-                onClick={() => {
-                  setStoreType('loja_validada');
-                  console.log("Botão Loja validada clicado, storeType =", 'loja_validada');
-                }}
-              >
-                <i className="fas fa-shield-alt"></i> Loja validada
-              </button>
-              <button 
-                type="button"
-                className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
-                onClick={() => {
-                  setStoreType('');
-                  console.log("Botão Nenhum clicado, storeType =", '');
-                }}
-              >
-                <i className="fas fa-times"></i> Nenhum
-              </button>
-            </div>
-            
-            {storeType === 'catalogo' && (
-              <div className="form-group" style={{ marginTop: '10px' }}>
-                <label className="form-label">Nome do Vendedor:</label>
-                {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Nova Seção: Imagem Personalizada */}
-        <div className="section-header" onClick={() => toggleSection('image')}>
-          <div className="section-title">
-            <i className="fas fa-image"></i>
-            Imagem Personalizada
-            <span className="optional-tag">Opcional</span>
-          </div>
-          <div className="chevron-container" onClick={(e) => toggleSection('image', e)}>
-            <i className={`fas fa-chevron-down chevron-icon ${imageSectionOpen ? 'open' : ''}`}></i>
-          </div>
-        </div>
-        
-        {imageSectionOpen && (
-          <div className="section-content">
-            <div className="form-group">
-              <label className="form-label">Upload de imagem</label>
-              <p className="form-description">
-                Carregue uma imagem personalizada para sua promoção. 
-                Se não for fornecida, será usada a imagem do produto.
-              </p>
-              <div className="web-share-info">
-                <p className="web-share-info-text">
-                  <i className="fas fa-info-circle"></i> Em dispositivos móveis compatíveis, a imagem será anexada junto com a mensagem.
-                </p>
-              </div>
-              
-              <div className="file-upload-container">
-                <input 
-                  type="file" 
-                  accept="image/jpeg,image/png,image/gif,image/jpg" 
-                  onChange={handleImageUpload}
-                  id="image-upload"
-                  className="file-input"
-                  disabled={uploadingImage}
-                />
-              </div>
-              
-              {uploadingImage && (
-                <div className="upload-status">
-                  <div className="loading"></div>
-                  <span>Enviando imagem...</span>
-                </div>
-              )}
-              
-              {customImage && (
-                <div className="custom-image-preview">
-                  <img src={customImage} alt="Imagem personalizada" className="uploaded-image" />
-                  <button onClick={removeCustomImage} className="btn-sm btn-danger">
-                    <i className="fas fa-trash-alt"></i> Remover
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {/* Nova Seção: Criar Título Divertido */}
-        <div className="section-header" onClick={() => toggleSection('aiImage')}>
-          <div className="section-title">
-            <i className="fas fa-robot"></i>
-            Criar Título Com IA
-            <span className="optional-tag">Novo</span>
-          </div>
-          <div className="chevron-container" onClick={(e) => toggleSection('aiImage', e)}>
-            <i className={`fas fa-chevron-down chevron-icon ${aiImageSectionOpen ? 'open' : ''}`}></i>
-          </div>
-        </div>
-        
-        {aiImageSectionOpen && (
-          <div className="section-content">
-            <div className="form-group">
-              <label className="form-label">Prompt para o Título (Opcional)</label>
-              <textarea 
-                className="form-input"
-                style={{ minHeight: '60px' }}
-                value={titlePrompt}
-                onChange={(e) => setTitlePrompt(e.target.value)}
-                placeholder="Ex: Gere um título divertido e criativo"
-                disabled={generatingTitle}
-              />
-            </div>
-            
-            <button 
-              className="btn"
-              style={{ 
-                width: '100%',
-                backgroundColor: 'var(--accent-color)',
-                position: 'relative'
-              }}
-              onClick={handleGenerateTitle}
-              disabled={generatingTitle || !productData}
-            >
-              {generatingTitle ? (
-                <>
-                  <div className="loading"></div>
-                  Gerando título...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-lightbulb"></i>
-                  Gerar Título
-                </>
-              )}
-            </button>
-            
-            {generatedTitle && (
-              <div style={{ 
-                marginTop: '15px', 
-                padding: '10px', 
-                backgroundColor: 'rgba(34, 197, 94, 0.1)', 
-                borderRadius: 'var(--border-radius)',
-                border: '1px solid var(--accent-color)'
-              }}>
-                <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>Título gerado:</p>
-                <p style={{ 
-                  fontFamily: 'monospace', 
-                  fontStyle: 'italic',  // Alterado de 'bold' para 'italic'
-                  fontSize: '1.1rem',
-                  backgroundColor: 'rgba(0,0,0,0.05)',
-                  padding: '8px',
-                  borderRadius: '4px'
-                }}>{generatedTitle}</p>
-              </div>
-            )}
-            
-            <div className="web-share-info" style={{ marginTop: '15px' }}>
-              <p className="web-share-info-text">
-                <i className="fas fa-lightbulb"></i> Dica: O título será adicionado automaticamente à sua mensagem. Você também pode editar a mensagem manualmente se preferir.
-              </p>
-            </div>
-          </div>
-        )}
+   // Função para extrair dados do produto
+   const handleExtract = async () => {
+     const inputEl = document.querySelector('input[type="url"]');
+     if (!inputEl || !inputEl.value) {
+       setError('Por favor, insira um link de afiliado.');
+       return;
+     }
+     
+     try {
+       setLoading(true);
+       setError('');
+       
+       // URL correta do backend no Render
+       const response = await axios.post(`${API_BASE_URL}/api/scrape`, { 
+         url: inputEl.value 
+       });
+       
+       // Passar os dados do produto e a URL usada para processamento
+       handleProductDataReceived(response.data, inputEl.value);
+     } catch (error) {
+       console.error('Erro ao obter dados do produto:', error);
+       setError(
+         error.response?.data?.error ||
+         'Falha ao obter dados do produto. Verifique o link e tente novamente.'
+       );
+     } finally {
+       setLoading(false);
+     }
+   };
+   
+   return (
+     <div>
+       <header className="app-header">
+         <div className="header-content">
+           <h1 className="app-title">Deals Generator</h1>
+           <span className="app-version">v2.7</span>
+         </div>
+       </header>
+       
+       <div className="container">
+         <div className="forms-column">
+           <div className="main-card" ref={mainCardRef}>
+             <div className="card-header">
+               <h2 className="card-title">Gerador de Mensagens Promocionais</h2>
+               <p className="card-subtitle">Crie mensagens atrativas para compartilhar promoções no WhatsApp</p>
+             </div>
+             
+             {/* Seção de Informações da Promoção */}
+             <div className="section-header" onClick={() => toggleSection('info')}>
+               <div className="section-title">
+                 <i className="fas fa-link"></i>
+                 Informações da Promoção
+               </div>
+               <div className="chevron-container" onClick={(e) => toggleSection('info', e)}>
+                 <i className={`fas fa-chevron-down chevron-icon ${infoSectionOpen ? 'open' : ''}`}></i>
+               </div>
+             </div>
+             
+             {infoSectionOpen && (
+               <div className="section-content">
+                 <div className="form-group">
+                   <label className="form-label">Link da promoção</label>
+                   <div className="input-clear-wrapper">
+                     <input
+                       type="url"
+                       className="form-input"
+                       value={url}
+                       onChange={(e) => setUrl(e.target.value)}
+                       placeholder="Cole o link da Amazon ou Mercado Livre"
+                       list="url-history"
+                     />
+                     {recentLinks && recentLinks.length > 0 && (
+                       <datalist id="url-history">
+                         {recentLinks.map((link, index) => (
+                           <option key={index} value={link} />
+                         ))}
+                       </datalist>
+                     )}
+                     {url && (
+                       <button 
+                         className="clear-input-btn" 
+                         onClick={() => setUrl('')}
+                         type="button"
+                       >
+                         <i className="fas fa-times"></i>
+                       </button>
+                     )}
+                   </div>
+                 </div>
+                 
+                 <div className="form-group">
+                   <label className="form-label">Cupom de desconto <span className="optional-tag">Opcional</span></label>
+                   {renderInputWithClear(
+                     couponCode, 
+                     handleCouponChange, 
+                     "Insira um cupom de desconto", 
+                     "text", 
+                     "coupon-history", 
+                     recentCoupons
+                   )}
+                 </div>
+                 
+                 <div className="discount-fields-grid">
+                   <div className="form-group">
+                     <label className="form-label">
+                       <i className="fas fa-percent"></i> Desconto % <span className="optional-tag">Opcional</span>
+                     </label>
+                     {renderInputWithClear(
+                       discountPercentage, 
+                       handleDiscountChange, 
+                       "Ex: 20 (sem o símbolo %)", 
+                       "number", 
+                       "discount-history", 
+                       recentDiscounts
+                     )}
+                   </div>
+                   
+                   <div className="form-group">
+                     <label className="form-label">
+                       <i className="fas fa-dollar-sign"></i> Desconto em R$ <span className="optional-tag">Opcional</span>
+                     </label>
+                     {renderInputWithClear(
+                       discountValue, 
+                       handleDiscountValueChange, 
+                       "Ex: 50", 
+                       "number", 
+                       "discount-value-history", 
+                       recentDiscountValues
+                     )}
+                   </div>
+                 </div>
+                 
+                 {(discountPercentage && discountValue) && (
+                   <div className="discount-warning">
+                     <i className="fas fa-exclamation-triangle"></i> Atenção: Use apenas um tipo de desconto por vez.
+                   </div>
+                 )}
+               </div>
+             )}
+             
+             {/* Seção de Tipo de Loja */}
+             <div className="section-header" onClick={() => toggleSection('store')}>
+               <div className="section-title">
+                 <i className="fas fa-store"></i>
+                 Tipo de Loja
+               </div>
+               <div className="chevron-container" onClick={(e) => toggleSection('store', e)}>
+                 <i className={`fas fa-chevron-down chevron-icon ${storeSectionOpen ? 'open' : ''}`}></i>
+               </div>
+             </div>
 
-        {/* NOVA SEÇÃO: Processamento em Lote */}
-        <div className="section-header" onClick={() => toggleSection('batch')}>
-          <div className="section-title">
-            <i className="fas fa-tasks"></i>
-            Gerar Mensagens em Lote
-            <span className="optional-tag">Novo</span>
-          </div>
-          <div className="chevron-container" onClick={(e) => toggleSection('batch', e)}>
-            <i className={`fas fa-chevron-down chevron-icon ${batchSectionOpen ? 'open' : ''}`}></i>
-          </div>
-        </div>
-        
-        {batchSectionOpen && (
-          <div className="section-content">
-            <div className="form-group">
-              <label className="form-label">Links para Processamento</label>
-              <p className="form-description">
-                Cole vários links para processar de uma vez (um por linha).
-              </p>
-              
-              <textarea 
-                className="form-input" 
-                style={{ minHeight: "120px" }}
-                value={batchLinks}
-                onChange={(e) => setBatchLinks(e.target.value)}
-                placeholder="Cole um Link por linha&#10;Exemplo:&#10;https://amzn.to/3Zjf9kk&#10;https://mercadolivre.com/sec/2x3yNSP"
-                disabled={batchProcessing}
-              />
-              
-              <button 
-                className="btn"
-                style={{ marginTop: "10px", width: "100%" }}
-                onClick={processBatchLinks}
-                disabled={batchProcessing}
-              >
-                {batchProcessing ? (
-                  <>
-                    <div className="loading"></div>
-                    Processando... {batchProgress}%
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-play"></i> Processar Links em Lote
-                  </>
-                )}
-              </button>
-              
-              {batchResults.length > 0 && (
-                <div className="batch-results" style={{ marginTop: "20px" }}>
-                  <div className="batch-results-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                    <h3 style={{ margin: 0 }}>Resultados ({batchResults.filter(r => r.success).length}/{batchResults.length})</h3>
-                    <button 
-                      className="btn-sm" 
-                      onClick={copyAllBatchMessages}
-                      disabled={batchResults.filter(r => r.success).length === 0}
-                    >
-                      <i className="fas fa-copy"></i> Copiar Todas
-                    </button>
-                  </div>
-                  
-                  <div className="batch-results-list" style={{ 
-                    maxHeight: "300px", 
-                    overflowY: "auto", 
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--border-radius)",
-                    backgroundColor: "var(--input-bg)"
-                  }}>
-                    {batchResults.map((result, index) => (
-                      <div 
-                        key={index} 
-                        className="batch-result-item" 
-                        style={{ 
-                          padding: "10px", 
-                          borderBottom: index < batchResults.length - 1 ? "1px solid var(--border-color)" : "none",
-                          backgroundColor: result.success ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)"
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
-                          <div style={{ fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
-                            {result.url}
-                          </div>
-                          <div>
-                            {result.success ? (
-                              <span style={{ color: "var(--success-color)" }}>
-                                <i className="fas fa-check-circle"></i> Sucesso
-                              </span>
-                            ) : (
-                              <span style={{ color: "var(--error-color)" }}>
-                                <i className="fas fa-exclamation-circle"></i> Falha
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {result.success ? (
-                          <>
-                            <div style={{ fontSize: "0.9rem", marginBottom: "5px" }}>
-                              {result.data.name}
-                            </div>
-                            <div style={{ display: "flex", gap: "5px" }}>
-                              <button 
-                                className="btn-sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(result.message);
-                                }}
-                              >
-                                <i className="fas fa-copy"></i> Copiar
-                              </button>
-                              <button 
-                                className="btn-sm"
-                                onClick={() => {
-                                  handleProductDataReceived(result.data, result.url);
-                                }}
-                              >
-                                <i className="fas fa-edit"></i> Editar
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ color: "var(--error-color)", fontSize: "0.9rem" }}>
-                            {result.error}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+             {storeSectionOpen && (
+               <div className="section-content">
+                 <div className="store-type-group">
+                   <button 
+                     type="button"
+                     className={`store-type-btn ${storeType === 'amazon' ? 'active' : ''}`}
+                     onClick={() => {
+                       setStoreType('amazon');
+                       console.log("Botão Amazon clicado, storeType =", 'amazon');
+                     }}
+                   >
+                     <i className="fab fa-amazon"></i> Amazon
+                   </button>
+                   <button 
+                     type="button"
+                     className={`store-type-btn ${storeType === 'loja_oficial' ? 'active' : ''}`}
+                     onClick={() => {
+                       setStoreType('loja_oficial');
+                       console.log("Botão Loja Oficial clicado, storeType =", 'loja_oficial');
+                     }}
+                   >
+                     <i className="fas fa-check-circle"></i> Loja Oficial
+                   </button>
+                   <button 
+                     type="button"
+                     className={`store-type-btn ${storeType === 'catalogo' ? 'active' : ''}`}
+                     onClick={() => {
+                       setStoreType('catalogo');
+                       console.log("Botão Catálogo clicado, storeType =", 'catalogo');
+                     }}
+                   >
+                     <i className="fas fa-list"></i> Catálogo
+                   </button>
+                   <button 
+                     type="button"
+                     className={`store-type-btn ${storeType === 'loja_validada' ? 'active' : ''}`}
+                     onClick={() => {
+                       setStoreType('loja_validada');
+                       console.log("Botão Loja validada clicado, storeType =", 'loja_validada');
+                     }}
+                   >
+                     <i className="fas fa-shield-alt"></i> Loja validada
+                   </button>
+                   <button 
+                     type="button"
+                     className={`store-type-btn ${storeType === '' ? 'active' : ''}`}
+                     onClick={() => {
+                       setStoreType('');
+                       console.log("Botão Nenhum clicado, storeType =", '');
+                     }}
+                   >
+                     <i className="fas fa-times"></i> Nenhum
+                   </button>
+                 </div>
+                 
+                 {storeType === 'catalogo' && (
+                   <div className="form-group" style={{ marginTop: '16px' }}>
+                     <label className="form-label">Nome do Vendedor:</label>
+                     {renderInputWithClear(vendorName, setVendorName, "Insira o nome do vendedor")}
+                   </div>
+                 )}
+               </div>
+             )}
+             
+             {/* Nova Seção: Imagem Personalizada */}
+             <div className="section-header" onClick={() => toggleSection('image')}>
+               <div className="section-title">
+                 <i className="fas fa-image"></i>
+                 Imagem Personalizada
+                 <span className="optional-tag">Opcional</span>
+               </div>
+               <div className="chevron-container" onClick={(e) => toggleSection('image', e)}>
+                 <i className={`fas fa-chevron-down chevron-icon ${imageSectionOpen ? 'open' : ''}`}></i>
+               </div>
+             </div>
+             
+             {imageSectionOpen && (
+               <div className="section-content">
+                 <div className="form-group">
+                   <label className="form-label">Upload de imagem</label>
+                   <p className="form-description">
+                     Carregue uma imagem personalizada para sua promoção. 
+                     Se não for fornecida, será usada a imagem do produto.
+                   </p>
+                   <div className="web-share-info">
+                     <p className="web-share-info-text">
+                       <i className="fas fa-info-circle"></i> Em dispositivos móveis compatíveis, a imagem será anexada junto com a mensagem.
+                     </p>
+                   </div>
+                   
+                   <div className="file-upload-container">
+                     <input 
+                       type="file" 
+                       accept="image/jpeg,image/png,image/gif,image/jpg" 
+                       onChange={handleImageUpload}
+                       id="image-upload"
+                       className="file-input"
+                       disabled={uploadingImage}
+                     />
+                   </div>
+                   
+                   {uploadingImage && (
+                     <div className="upload-status">
+                       <div className="loading"></div>
+                       <span>Enviando imagem...</span>
+                     </div>
+                   )}
+                   
+                   {customImage && (
+                     <div className="custom-image-preview">
+                       <img src={customImage} alt="Imagem personalizada" className="uploaded-image" />
+                       <button onClick={removeCustomImage} className="btn-sm btn-danger">
+                         <i className="fas fa-trash-alt"></i> Remover
+                       </button>
+                     </div>
+                   )}
+                 </div>
+               </div>
+             )}
+             
+             {/* Nova Seção: Criar Título Divertido */}
+             <div className="section-header" onClick={() => toggleSection('aiImage')}>
+               <div className="section-title">
+                 <i className="fas fa-robot"></i>
+                 Criar Título Com IA
+                 <span className="optional-tag">Opcional</span>
+               </div>
+               <div className="chevron-container" onClick={(e) => toggleSection('aiImage', e)}>
+                 <i className={`fas fa-chevron-down chevron-icon ${aiImageSectionOpen ? 'open' : ''}`}></i>
+               </div>
+             </div>
+             
+             {aiImageSectionOpen && (
+               <div className="section-content">
+                 <div className="form-group">
+                   <label className="form-label">Geração Automática de Título</label>
+                   <p className="form-description">
+                     Clique no botão abaixo para gerar automaticamente um título criativo e divertido para seu produto usando IA.
+                   </p>
+                   
+                   <button 
+                     className="btn btn-ai"
+                     style={{ width: '100%' }}
+                     onClick={handleGenerateTitle}
+                     disabled={generatingTitle || !productData}
+                   >
+                     {generatingTitle ? (
+                       <>
+                         <div className="loading"></div>
+                         Gerando título...
+                       </>
+                     ) : (
+                       <>
+                         <i className="fas fa-lightbulb"></i>
+                         Gerar Título Criativo
+                       </>
+                     )}
+                   </button>
+                   
+                   {generatedTitle && (
+                     <div style={{ 
+                       marginTop: '15px', 
+                       padding: '12px 16px', 
+                       background: 'rgba(16, 185, 129, 0.1)', 
+                       borderRadius: '8px',
+                       border: '1px solid rgba(16, 185, 129, 0.2)'
+                     }}>
+                       <p style={{ 
+                         fontWeight: '600', 
+                         marginBottom: '6px', 
+                         color: 'var(--text-secondary)',
+                         fontSize: '13px'
+                       }}>Título gerado:</p>
+                       <p style={{ 
+                         fontFamily: 'JetBrains Mono, monospace', 
+                         fontStyle: 'italic',
+                         fontSize: '14px',
+                         fontWeight: '600',
+                         background: 'rgba(0,0,0,0.1)',
+                         padding: '8px 12px',
+                         borderRadius: '6px',
+                         color: 'var(--text-primary)'
+                       }}>{generatedTitle}</p>
+                     </div>
+                   )}
+                   
+                   <div className="web-share-info" style={{ marginTop: '15px' }}>
+                     <p className="web-share-info-text">
+                       <i className="fas fa-lightbulb"></i> 
+                       O título será adicionado automaticamente no início da sua mensagem. Você pode editar manualmente depois se quiser.
+                     </p>
+                   </div>
+                 </div>
+               </div>
+             )}
 
-        {/* Botão Extrair Dados - Com destaque especial para garantir visibilidade */}
-        <div style={{ 
-          padding: '24px', 
-          borderBottom: '1px solid var(--border-color)',
-          backgroundColor: 'rgba(88, 101, 242, 0.1)'
-        }}>
-          <button
-            className="btn extract-btn"
-            onClick={handleExtract}
-            disabled={loading}
-            style={{
-              background: loading ? '#3e4adf' : 'linear-gradient(90deg, #5865f2, #3e4adf)',
-              padding: '18px',
-              fontSize: '1.15rem',
-              fontWeight: 'bold',
-              boxShadow: '0 6px 15px rgba(88, 101, 242, 0.5)',
-              position: 'relative',
-              overflow: 'hidden',
-              width: '100%',
-              border: 'none',
-              color: 'white',
-              borderRadius: '12px',
-              cursor: loading ? 'default' : 'pointer',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px'
-            }}
-          >
-            {loading ? (
-              <>
-                <div className="loading"></div>
-                Extraindo dados...
-              </>
-            ) : (
-              <>
-                <i className="fas fa-search"></i>
-                Extrair Dados
-              </>
-            )}
-          </button>
-          {error && <div className="error-message">{error}</div>}
-        </div>
-        
-        {loading ? (
-          <div className="section-content" style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignItems: 'center', padding: '20px' }}>
-              <div className="loading"></div>
-              <span>Carregando informações do produto...</span>
-            </div>
-          </div>
-        ) : productData ? (
-          <div className="preview-section">
-            <p className="preview-label">Prévia da mensagem</p>
-            
-            {/* Imagem da Prévia */}
-            {(customImage || (productData && productData.imageUrl)) && (
-              <div className="preview-image-container">
-                <img 
-                  src={customImage || productData.imageUrl} 
-                  alt={productData.name || 'Imagem da promoção'} 
-                  className="preview-image"
-                />
-              </div>
-            )}
-            
-            {/* Mensagem editável */}
-            <div 
-              ref={messagePreviewRef}
-              className={`message-preview ${isEditing ? 'editing' : ''}`}
-              onClick={enableEditing}
-              onBlur={disableEditing}
-              contentEditable={isEditing}
-              suppressContentEditableWarning={true}
-            >
-              <MessagePreview 
-                productData={productData}
-                couponCode={couponCode}
-                storeType={storeType}
-                vendorName={vendorName}
-                discountPercentage={discountPercentage}
-                discountValue={discountValue}
-                setFinalMessage={setFinalMessage}
-              />
-            </div>
-            
-            {/* Texto de instrução para editar */}
-            <div className="edit-instructions">
-              <i className="fas fa-edit"></i> Clique na mensagem para editar
-            </div>
-            
-            <div className="actions-row">
-              <button 
-                id="copyButton"
-                className={`copy-btn ${copySuccess ? 'success-animation' : ''}`}
-                onClick={copyMessage}
-              >
-                <i className={`${copySuccess ? 'fas fa-check' : 'fas fa-copy'}`}></i>
-                {copySuccess ? 'Copiado!' : 'Copiar Mensagem'}
-              </button>
-              
-              <button 
-                className="share-btn"
-                onClick={shareWhatsApp}
-              >
-                <i className="fab fa-whatsapp"></i>
-                Compartilhar no WhatsApp
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-      
-      <div className="watermark" style={{ textAlign: 'center', margin: '20px 0', color: 'var(--text-secondary)' }}>
-        GeraPromo &copy; 2025 - Todos os direitos reservados
-      </div>
-    </div>
-  );
-}
+             {/* NOVA SEÇÃO: Processamento em Lote */}
+             <div className="section-header" onClick={() => toggleSection('batch')}>
+               <div className="section-title">
+                 <i className="fas fa-tasks"></i>
+                 Gerar Mensagens em Lote
+                 <span className="optional-tag">Opcional</span>
+               </div>
+               <div className="chevron-container" onClick={(e) => toggleSection('batch', e)}>
+                 <i className={`fas fa-chevron-down chevron-icon ${batchSectionOpen ? 'open' : ''}`}></i>
+               </div>
+             </div>
+             
+             {batchSectionOpen && (
+               <div className="section-content">
+                 <div className="form-group">
+                   <label className="form-label">Links para Processamento</label>
+                   <p className="form-description">
+                     Cole vários links para processar de uma vez (um por linha).
+                   </p>
+                   
+                   <textarea 
+                     className="form-input" 
+                     style={{ minHeight: "120px" }}
+                     value={batchLinks}
+                     onChange={(e) => setBatchLinks(e.target.value)}
+                     placeholder="Cole um Link por linha&#10;Exemplo:&#10;https://amzn.to/3Zjf9kk&#10;https://mercadolivre.com/sec/2x3yNSP"
+                     disabled={batchProcessing}
+                   />
+                   
+                   <button 
+                     className="btn"
+                     style={{ marginTop: "12px", width: "100%" }}
+                     onClick={processBatchLinks}
+                     disabled={batchProcessing}
+                   >
+                     {batchProcessing ? (
+                       <>
+                         <div className="loading"></div>
+                         Processando... {batchProgress}%
+                       </>
+                     ) : (
+                       <>
+                         <i className="fas fa-play"></i> Processar Links em Lote
+                       </>
+                     )}
+                   </button>
+                   
+                   {batchResults.length > 0 && (
+                     <div className="batch-results" style={{ marginTop: "20px" }}>
+                       <div className="batch-results-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>Resultados ({batchResults.filter(r => r.success).length}/{batchResults.length})</h3>
+                         <button 
+                           className="btn-sm" 
+                           onClick={copyAllBatchMessages}
+                           disabled={batchResults.filter(r => r.success).length === 0}
+                         >
+                           <i className="fas fa-copy"></i> Copiar Todas
+                         </button>
+                       </div>
+                       
+                       <div className="batch-results-list" style={{ 
+                         maxHeight: "300px", 
+                         overflowY: "auto", 
+                         border: "1px solid var(--border)",
+                         borderRadius: "8px",
+                         background: "rgba(15, 23, 42, 0.6)"
+                       }}>
+                         {batchResults.map((result, index) => (
+                           <div 
+                             key={index} 
+                             className="batch-result-item" 
+                             style={{ 
+                               padding: "12px", 
+                               borderBottom: index < batchResults.length - 1 ? "1px solid var(--border)" : "none",
+                               background: result.success ? "rgba(16, 185, 129, 0.05)" : "rgba(239, 68, 68, 0.05)"
+                             }}
+                           >
+                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                               <div style={{ fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%", fontSize: '12px' }}>
+                                 {result.url}
+                               </div>
+                               <div>
+                                 {result.success ? (
+                                   <span style={{ color: "var(--neon-green)", fontSize: '11px', fontWeight: '500' }}>
+                                     <i className="fas fa-check-circle"></i> Sucesso
+                                   </span>
+                                 ) : (
+                                   <span style={{ color: "var(--accent-error)", fontSize: '11px', fontWeight: '500' }}>
+                                     <i className="fas fa-exclamation-circle"></i> Falha
+                                   </span>
+                                 )}
+                               </div>
+                             </div>
+                             
+                             {result.success ? (
+                               <>
+                                 <div style={{ fontSize: "12px", marginBottom: "8px", color: 'var(--text-secondary)' }}>
+                                   {result.data.name}
+                                 </div>
+                                 <div style={{ display: "flex", gap: "6px" }}>
+                                   <button 
+                                     className="btn-sm"
+                                     onClick={() => {
+                                       navigator.clipboard.writeText(result.message);
+                                     }}
+                                   >
+                                     <i className="fas fa-copy"></i> Copiar
+                                   </button>
+                                   <button 
+                                     className="btn-sm"
+                                     onClick={() => {
+                                       handleProductDataReceived(result.data, result.url);
+                                     }}
+                                   >
+                                     <i className="fas fa-edit"></i> Editar
+                                   </button>
+                                 </div>
+                               </>
+                             ) : (
+                               <div style={{ color: "var(--accent-error)", fontSize: "12px" }}>
+                                 {result.error}
+                               </div>
+                             )}
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                 </div>
+               </div>
+             )}
 
-export default App;
+             {/* Botão Extrair Dados */}
+             <div className="extract-section">
+               <button
+                 className="btn-extract"
+                 onClick={handleExtract}
+                 disabled={loading}
+               >
+                 {loading ? (
+                   <>
+                     <div className="loading"></div>
+                     Extraindo dados...
+                   </>
+                 ) : (
+                   <>
+                     <i className="fas fa-search"></i>
+                     EXTRAIR DADOS
+                   </>
+                 )}
+               </button>
+               {error && <div className="error-message">{error}</div>}
+             </div>
+             
+             {loading && (
+               <div className="section-content" style={{ textAlign: 'center' }}>
+                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                   <div className="loading"></div>
+                   <span>Carregando informações do produto...</span>
+                 </div>
+               </div>
+             )}
+           </div>
+         </div>
+
+         {/* Preview Column - só aparece quando há dados do produto */}
+         {productData && (
+           <div className="preview-column">
+             <div className="preview-card">
+               <div className="preview-title">Preview da Mensagem</div>
+               
+               {/* Imagem da Prévia */}
+               {(customImage || (productData && productData.imageUrl)) && (
+                 <div className="preview-image-container">
+                   <img 
+                     src={customImage || productData.imageUrl} 
+                     alt={productData.name || 'Imagem da promoção'} 
+                     className="preview-image"
+                   />
+                 </div>
+               )}
+               
+               {/* Mensagem editável */}
+               <div 
+                 ref={messagePreviewRef}
+                 className={`message-preview ${isEditing ? 'editing' : ''}`}
+                 onClick={enableEditing}
+                 onBlur={disableEditing}
+                 contentEditable={isEditing}
+                 suppressContentEditableWarning={true}
+               >
+                 <MessagePreview 
+                   productData={productData}
+                   couponCode={couponCode}
+                   storeType={storeType}
+                   vendorName={vendorName}
+                   discountPercentage={discountPercentage}
+                   discountValue={discountValue}
+                   setFinalMessage={setFinalMessage}
+                 />
+               </div>
+               
+               {/* Texto de instrução para editar */}
+               <div className="edit-instructions">
+                 <i className="fas fa-edit"></i> Clique na mensagem para editar
+               </div>
+               
+               <div className="preview-actions">
+                 <button 
+                   id="copyButton"
+                   className={`btn-copy ${copySuccess ? 'success-animation' : ''}`}
+                   onClick={copyMessage}
+                 >
+                   <i className={`${copySuccess ? 'fas fa-check' : 'fas fa-copy'}`}></i>
+                   {copySuccess ? 'Copiado!' : 'COPIAR'}
+                 </button>
+                 
+                 <button 
+                   className="btn-whatsapp"
+                   onClick={shareWhatsApp}
+                 >
+                   <i className="fab fa-whatsapp"></i>
+                   WHATSAPP
+                 </button>
+               </div>
+             </div>
+           </div>
+         )}
+       </div>
+       
+       <div className="watermark">
+         Deals Generator &copy; 2025 - Todos os direitos reservados
+       </div>
+     </div>
+   );
+ }
+
+ export default App;
