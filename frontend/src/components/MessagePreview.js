@@ -10,7 +10,19 @@ const MessagePreview = ({
  discountValue,
  setFinalMessage
 }) => {
- // Manter toda a lógica existente igual
+ 
+ // NOVA LÓGICA: Se for mensagem da Shopee, usar a mensagem convertida
+ if (productData && productData.isShopeeMessage) {
+   useEffect(() => {
+     if (productData.convertedMessage) {
+       setFinalMessage(productData.convertedMessage);
+     }
+   }, [productData, setFinalMessage]);
+   
+   return productData.convertedMessage || 'Processando mensagem da Shopee...';
+ }
+ 
+ // LÓGICA ORIGINAL PARA OUTROS PRODUTOS (não mexer em nada)
  const formatPrice = (price) => {
    if (!price) return '';
    

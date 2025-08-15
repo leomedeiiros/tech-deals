@@ -8,6 +8,7 @@ const shopeeScraper = require('../services/shopeeScraper');
 const linkResolver = require('../utils/linkResolver');
 const whatsappService = require('../services/whatsappService');
 const geminiService = require('../services/geminiService');
+const { isShopeeMessage, processShopeeMessage } = require('../services/shopeeMessageProcessor');
 
 exports.scrapeProduct = async (req, res) => {
   try {
@@ -18,6 +19,24 @@ exports.scrapeProduct = async (req, res) => {
     }
 
     console.log(`Iniciando scraping para URL: ${url}`);
+    
+    // NOVA LÓGICA: Verificar se é mensagem da Shopee
+    if (isShopeeMessage(url)) {
+      console.log('Detectada mensagem da Shopee, processando...');
+      try {
+        const processedData = await processShopeeMessage(url);
+        console.log('Mensagem da Shopee processada com sucesso:', processedData);
+        return res.json(processedData);
+      } catch (error) {
+        console.error('Erro ao processar mensagem da Shopee:', error);
+        return res.status(500).json({ 
+          error: 'Falha ao processar mensagem da Shopee', 
+          details: error.message 
+        });
+      }
+    }
+    
+    // LÓGICA ORIGINAL PARA LINKS NORMAIS (não mexer em nada)
     
     // Verificar se é link de afiliado do Mercado Livre
     const isMercadoLivreAffiliate = url.includes('mercadolivre.com/sec/') || url.includes('mercadolibre.com/sec/');
