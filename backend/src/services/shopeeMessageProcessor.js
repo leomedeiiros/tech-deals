@@ -11,6 +11,74 @@ const isShopeeMessage = (text) => {
   return text.includes('s.shopee.com.br') || text.includes('shopee.com.br');
 };
 
+// Função para extrair dados da mensagem
+const extractMessageData = (message) => {
+  console.log('[SHOPEE-MSG] Extraindo dados da mensagem...');
+  
+  const data = {
+    productName: '',
+    price: '',
+    installments: '',
+    hasInstallments: false,
+    couponInfo: '',
+    links: []
+  };
+  
+  // Extrair nome do produto (primeira linha geralmente)
+  const lines = message.split('\n').filter(line => line.trim());
+  if (lines.length > 0) {
+    // Remover emojis e limpar primeira linha
+    data.productName = lines[0]
+      .replace(/🚨|💥|⚡|🔥|🎯|➡️|\*/g, '')
+      .trim();
+  }
+  
+  // Extrair preço (R$ XXX)
+  const priceMatch = message.match(/R\$\s*(\d+(?:[.,]\d+)?)/);
+  if (priceMatch) {
+    data.price = priceMatch[1];
+  }
+  
+  // Detectar informações de parcelas
+  const installmentPatterns = [
+    /(\d+x\s*sem\s*juros)/i,
+    /(\d+x\s*SEM\s*JUROS)/i,
+    /(em\s*\d+x\s*sem\s*juros)/i,
+    /(em\s*\d+x\s*SEM\s*JUROS)/i
+  ];
+  
+  for (const pattern of installmentPatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      data.hasInstallments = true;
+      data.installments = match[1].toLowerCase().replace('em ', '');
+      break;
+    }
+  }
+  
+  // Extrair informação de cupom
+  const couponPatterns = [
+    /cupom\s*([^:]+):/i,
+    /cupom\s*([^h]+)h/i,
+    /cupom\s*([^\n]+)/i
+  ];
+  
+  for (const pattern of couponPatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      data.couponInfo = match[1].trim();
+      break;
+    }
+  }
+  
+  // Extrair links
+  const shopeeRegex = /https?:\/\/(?:s\.)?shopee\.com\.br\/[A-Za-z0-9]+/g;
+  data.links = message.match(shopeeRegex) || [];
+  
+  console.log('[SHOPEE-MSG] Dados extraídos:', data);
+  return data;
+};
+
 // Função para extrair links da Shopee de uma mensagem
 const extractShopeeLinks = (message) => {
   console.log('[SHOPEE-MSG] Extraindo links da mensagem...');
@@ -116,47 +184,91 @@ const generateAffiliateLink = (originalUrl) => {
   });
 };
 
+// Função para reformatar mensagem
+const formatShopeeMessage = (messageData, newLinks) => {
+  console.log('[SHOPEE-MSG] Formatando mensagem...');
+  
+  let formattedMessage = `➡️ *${messageData.productName}*\n_Loja Verificada na Shopee_\n\n💵 R$ ${messageData.price}`;
+  
+  // Adicionar linha de parcelas se detectado
+  if (messageData.hasInstallments) {
+    formattedMessage += `\n⭐️ ${messageData.installments}`;
+  }
+  
+  // Adicionar cupom (primeiro link)
+  if (messageData.couponInfo && newLinks.length > 0) {
+    formattedMessage += `\n🎟️ Resgate cupom ${messageData.couponInfo}: ${newLinks[0]}`;
+  }
+  
+  // Adicionar link do produto (segundo link, ou primeiro se só tiver um)
+  const productLinkIndex = newLinks.length > 1 ? 1 : 0;
+  if (newLinks[productLinkIndex]) {
+    formattedMessage += `\n🛒 Link do produto: ${newLinks[productLinkIndex]}`;
+  }
+  
+  formattedMessage += `\n\n☑️ Link do grupo: https://linktr.ee/techdealsbr`;
+  
+  console.log('[SHOPEE-MSG] Mensagem formatada:', formattedMessage);
+  return formattedMessage;
+};
+
 // Função principal para processar mensagem
 const processShopeeMessage = async (message) => {
   console.log('[SHOPEE-MSG] Iniciando processamento...');
   
   try {
+    // Extrair dados da mensagem
+    const messageData = extractMessageData(message);
+    
+    if (!messageData.productName) {
+      throw new Error('Nome do produto não encontrado na mensagem');
+    }
+    
+    // Extrair links originais
     const originalLinks = extractShopeeLinks(message);
     
     if (originalLinks.length === 0) {
       throw new Error('Nenhum link da Shopee encontrado');
     }
     
-    let newMessage = message;
+    const newLinks = [];
     let successCount = 0;
     
+    // Processar cada link
     for (const originalLink of originalLinks) {
       try {
         const resolvedUrl = await resolveShortLink(originalLink);
         
         if (resolvedUrl) {
           const newAffiliateLink = await generateAffiliateLink(resolvedUrl);
-          newMessage = newMessage.replace(originalLink, newAffiliateLink);
+          newLinks.push(newAffiliateLink);
           successCount++;
           console.log(`[SHOPEE-MSG] ✅ Link convertido: ${originalLink} → ${newAffiliateLink}`);
         } else {
+          // Se não conseguir resolver, manter original
+          newLinks.push(originalLink);
           console.log(`[SHOPEE-MSG] ⚠️ Mantendo link original: ${originalLink}`);
         }
       } catch (error) {
+        // Se der erro, manter original
+        newLinks.push(originalLink);
         console.log(`[SHOPEE-MSG] ❌ Erro ao processar ${originalLink}:`, error.message);
       }
     }
     
+    // Reformatar mensagem
+    const formattedMessage = formatShopeeMessage(messageData, newLinks);
+    
     return {
-      name: 'Mensagem da Shopee',
-      currentPrice: 'Ver na mensagem',
+      name: messageData.productName,
+      currentPrice: `R$ ${messageData.price}`,
       originalPrice: null,
       imageUrl: '',
       vendor: 'Loja Verificada na Shopee',
       platform: 'shopee',
-      productUrl: newMessage, // A mensagem inteira vai aqui
+      productUrl: formattedMessage, // A mensagem formatada vai aqui
       originalMessage: message,
-      convertedMessage: newMessage,
+      convertedMessage: formattedMessage,
       linksProcessed: originalLinks.length,
       linksConverted: successCount,
       isShopeeMessage: true

@@ -210,12 +210,12 @@ const MessagePreview = ({
  const generateMessage = () => {
    if (!productData) return '';
    
-   // NOVA LÓGICA: Se for mensagem da Shopee, retornar a mensagem convertida
+   // NOVA LÓGICA: Se for mensagem da Shopee, retornar a mensagem formatada
    if (productData.isShopeeMessage) {
      return productData.convertedMessage || 'Processando mensagem da Shopee...';
    }
    
-   // LÓGICA ORIGINAL PARA OUTROS PRODUTOS
+   // LÓGICA ORIGINAL PARA OUTROS PRODUTOS (inalterada)
    const { name, productUrl } = productData;
    
    const rawCurrentPrice = productData.currentPrice;
@@ -284,7 +284,7 @@ const MessagePreview = ({
    return message;
  };
  
- // CORREÇÃO: useEffect SEMPRE executado, mas com condições DENTRO
+ // useEffect SEMPRE executado, mas com condições DENTRO
  useEffect(() => {
    if (productData) {
      const message = generateMessage();
