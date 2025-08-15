@@ -68,39 +68,119 @@ const extractMessageData = (message) => {
   return data;
 };
 
-// Função para resolver link tidd.ly
-const resolveTiddLink = (shortLink) => {
+// Função melhorada para resolver múltiplos redirecionamentos
+const resolveTiddLink = (shortLink, maxRedirects = 5) => {
   return new Promise((resolve) => {
     console.log(`[KABUM-MSG] Resolvendo: ${shortLink}`);
     
-    const url = new URL(shortLink);
+    let redirectCount = 0;
+    
+    const followRedirect = (currentUrl) => {
+      if (redirectCount >= maxRedirects) {
+        console.log('[KABUM-MSG] Máximo de redirecionamentos atingido');
+        resolve(null);
+        return;
+      }
+      
+      // Se já é URL do Kabum, retornar
+      if (currentUrl.includes('kabum.com.br')) {
+        console.log(`[KABUM-MSG] ✅ URL do Kabum encontrada: ${currentUrl}`);
+        resolve(currentUrl);
+        return;
+      }
+      
+      // Se é URL da AWIN, extrair o link interno
+      if (currentUrl.includes('awin1.com/cread.php')) {
+        const urlParams = new URL(currentUrl);
+        const internalLink = urlParams.searchParams.get('ued');
+        if (internalLink) {
+          console.log(`[KABUM-MSG] Link interno encontrado na AWIN: ${internalLink}`);
+          redirectCount++;
+          followRedirect(internalLink);
+          return;
+        }
+      }
+      
+      // Fazer requisição HEAD para seguir redirecionamento
+      const url = new URL(currentUrl);
+      const options = {
+        hostname: url.hostname,
+        path: url.pathname + url.search,
+        method: 'HEAD',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      };
+      
+      const req = https.request(options, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          const redirectUrl = res.headers.location;
+          console.log(`[KABUM-MSG] Redirecionado para: ${redirectUrl}`);
+          redirectCount++;
+          followRedirect(redirectUrl);
+        } else {
+          console.log(`[KABUM-MSG] Fim dos redirecionamentos em: ${currentUrl}`);
+          resolve(null);
+        }
+      });
+      
+      req.on('error', () => {
+        console.log(`[KABUM-MSG] Erro ao resolver ${currentUrl}`);
+        resolve(null);
+      });
+      
+      req.setTimeout(10000, () => {
+        console.log(`[KABUM-MSG] Timeout ao resolver ${currentUrl}`);
+        req.destroy();
+        resolve(null);
+      });
+      
+      req.end();
+    };
+    
+    followRedirect(shortLink);
+  });
+};
+
+// Estratégia alternativa: fazer GET na URL AWIN para extrair o link final
+const extractKabumUrlFromAwin = (awinUrl) => {
+  return new Promise((resolve) => {
+    console.log(`[KABUM-MSG] Extraindo URL do Kabum de: ${awinUrl}`);
+    
+    const url = new URL(awinUrl);
     const options = {
       hostname: url.hostname,
-      path: url.pathname,
-      method: 'HEAD',
+      path: url.pathname + url.search,
+      method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     };
     
     const req = https.request(options, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        const redirectUrl = res.headers.location;
-        console.log(`[KABUM-MSG] Redirecionado para: ${redirectUrl}`);
-        
-        if (redirectUrl.includes('kabum.com.br')) {
-          resolve(redirectUrl);
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        // Procurar por URLs do Kabum no HTML/JavaScript
+        const kabumMatches = data.match(/https?:\/\/[^"'\s]*kabum\.com\.br[^"'\s]*/g);
+        if (kabumMatches && kabumMatches.length > 0) {
+          const kabumUrl = kabumMatches[0];
+          console.log(`[KABUM-MSG] ✅ URL do Kabum extraída: ${kabumUrl}`);
+          resolve(kabumUrl);
         } else {
-          resolveTiddLink(redirectUrl).then(resolve).catch(() => resolve(null));
+          console.log('[KABUM-MSG] Nenhuma URL do Kabum encontrada no HTML');
+          resolve(null);
         }
-      } else {
-        console.log(`[KABUM-MSG] Link não redirecionou: ${shortLink}`);
-        resolve(null);
-      }
+      });
     });
     
-    req.on('error', () => resolve(null));
-    req.setTimeout(10000, () => {
+    req.on('error', () => {
+      console.log(`[KABUM-MSG] Erro ao fazer GET em ${awinUrl}`);
+      resolve(null);
+    });
+    
+    req.setTimeout(15000, () => {
+      console.log(`[KABUM-MSG] Timeout ao fazer GET em ${awinUrl}`);
       req.destroy();
       resolve(null);
     });
@@ -137,10 +217,13 @@ const generateAwinAffiliateLink = (originalUrl) => {
       res.on('end', () => {
         try {
           const response = JSON.parse(data);
-          if (response.shortUrl || response.url) {
-            const newLink = response.shortUrl || response.url;
-            console.log(`[KABUM-MSG] ✅ Novo link AWIN gerado: ${newLink}`);
-            resolve(newLink);
+          
+          if (response.shortUrl) {
+            console.log(`[KABUM-MSG] ✅ Link encurtado gerado: ${response.shortUrl}`);
+            resolve(response.shortUrl);
+          } else if (response.url) {
+            console.log(`[KABUM-MSG] ✅ Link gerado: ${response.url}`);
+            resolve(response.url);
           } else {
             console.log(`[KABUM-MSG] ❌ Erro na API AWIN:`, response);
             reject(new Error('Falha ao gerar link de afiliado AWIN'));
@@ -201,8 +284,42 @@ const processKabumMessage = async (message) => {
     let newLink = messageData.link; // Fallback para link original
     
     try {
-      // Resolver link para obter URL original do Kabum
-      const resolvedUrl = await resolveTiddLink(messageData.link);
+      console.log('[KABUM-MSG] Resolvendo link...');
+      
+      // Primeiro, tentar resolver seguindo redirecionamentos
+      let resolvedUrl = await resolveTiddLink(messageData.link);
+      
+      // Se não funcionou, tentar extrair da página AWIN
+      if (!resolvedUrl) {
+        console.log('[KABUM-MSG] Tentando extrair URL da página AWIN...');
+        
+        // Primeiro, obter a URL da AWIN
+        const awinUrl = await new Promise((resolve) => {
+          const url = new URL(messageData.link);
+          const options = {
+            hostname: url.hostname,
+            path: url.pathname,
+            method: 'HEAD',
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+          };
+          
+          const req = https.request(options, (res) => {
+            if (res.headers.location && res.headers.location.includes('awin1.com')) {
+              resolve(res.headers.location);
+            } else {
+              resolve(null);
+            }
+          });
+          
+          req.on('error', () => resolve(null));
+          req.setTimeout(10000, () => { req.destroy(); resolve(null); });
+          req.end();
+        });
+        
+        if (awinUrl) {
+          resolvedUrl = await extractKabumUrlFromAwin(awinUrl);
+        }
+      }
       
       if (resolvedUrl) {
         // Gerar novo link de afiliado com suas credenciais
