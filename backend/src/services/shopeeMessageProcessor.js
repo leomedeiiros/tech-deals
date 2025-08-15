@@ -24,12 +24,14 @@ const extractMessageData = (message) => {
     links: []
   };
   
-  // Extrair nome do produto (primeira linha geralmente)
-  const lines = message.split('\n').filter(line => line.trim());
-  if (lines.length > 0) {
-    // Remover emojis e limpar primeira linha
-    data.productName = lines[0]
-      .replace(/🚨|💥|⚡|🔥|🎯|➡️|\*/g, '')
+  // CORREÇÃO: Extrair nome do produto (tudo antes do preço R$)
+  const beforePrice = message.split(/💵|R\$/)[0];
+  if (beforePrice) {
+    // Remover todos os emojis e links, manter só texto
+    data.productName = beforePrice
+      .replace(/🚨|💥|⚡|🔥|🎯|➡️|✔️|🎟|💵|\*/g, '') // Remover emojis
+      .replace(/https?:\/\/[^\s]+/g, '') // Remover links
+      .replace(/\s+/g, ' ') // Normalizar espaços
       .trim();
   }
   
