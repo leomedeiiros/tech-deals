@@ -215,6 +215,11 @@ const MessagePreview = ({
      return productData.convertedMessage;
    }
    
+   // NOVA LÓGICA PARA KABUM: Se for mensagem do Kabum, retornar a mensagem formatada
+   if (productData.isKabumMessage && productData.convertedMessage) {
+     return productData.convertedMessage;
+   }
+   
    // LÓGICA ORIGINAL PARA OUTROS PRODUTOS (INALTERADA)
    const { name, productUrl } = productData;
    
@@ -241,60 +246,59 @@ const MessagePreview = ({
    if (discountPercentage) {
      calculatedPrice = calculatePercentageDiscount(rawCurrentPrice);
      if (calculatedPrice === "1" || calculatedPrice === "2" || calculatedPrice === "3") {
-       console.log("Ajuste para desconto percentual aplicado");
-       finalPrice = processedCurrentPrice;
-     } else {
-       finalPrice = calculatedPrice;
-     }
-   } else if (discountValue) {
-     calculatedPrice = calculateValueDiscount(rawCurrentPrice);
-     if (calculatedPrice === "1" || calculatedPrice === "2" || calculatedPrice === "3") {
-       console.log("Ajuste para desconto em valor aplicado");
-       finalPrice = processedCurrentPrice;
-     } else {
-       finalPrice = calculatedPrice;
-     }
-   }
-   
-   if (isAmazon) {
-     priceText = `✅  Por *R$ ${finalPrice}*`;
-   } else {
-     if (processedOriginalPrice && hasRealDiscount(rawOriginalPrice, finalPrice)) {
-       priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
-     } else {
-       priceText = `✅  Por *R$ ${finalPrice}*`;
-     }
-   }
-   
-   let message = `➡️ *${name}*`;
-   if (storeTypeText) {
-     message += `\n_${storeTypeText}_`;
-   }
-   
-   message += `\n\n${priceText}`;
-   
-   if (couponCode) {
-     message += `\n🎟️ Use o cupom: *${couponCode}*`;
-   }
-   
-   message += `\n🛒 ${productUrl}`;
-   
-   message += `\n\n☑️ Link do grupo: https://linktr.ee/techdealsbr`;
-   
-   return message;
- };
- 
- // useEffect SEMPRE executado (INALTERADO)
- useEffect(() => {
-   if (productData) {
-     const message = generateMessage();
-     setFinalMessage(message);
-   } else {
-     setFinalMessage('');
-   }
- }, [productData, couponCode, storeType, vendorName, discountPercentage, discountValue]);
- 
- return generateMessage();
+       console.log("Ajuste para desconto percentual aplicado");finalPrice = processedCurrentPrice;
+    } else {
+      finalPrice = calculatedPrice;
+    }
+  } else if (discountValue) {
+    calculatedPrice = calculateValueDiscount(rawCurrentPrice);
+    if (calculatedPrice === "1" || calculatedPrice === "2" || calculatedPrice === "3") {
+      console.log("Ajuste para desconto em valor aplicado");
+      finalPrice = processedCurrentPrice;
+    } else {
+      finalPrice = calculatedPrice;
+    }
+  }
+  
+  if (isAmazon) {
+    priceText = `✅  Por *R$ ${finalPrice}*`;
+  } else {
+    if (processedOriginalPrice && hasRealDiscount(rawOriginalPrice, finalPrice)) {
+      priceText = `✅  ~De R$ ${processedOriginalPrice}~ por *R$ ${finalPrice}*`;
+    } else {
+      priceText = `✅  Por *R$ ${finalPrice}*`;
+    }
+  }
+  
+  let message = `➡️ *${name}*`;
+  if (storeTypeText) {
+    message += `\n_${storeTypeText}_`;
+  }
+  
+  message += `\n\n${priceText}`;
+  
+  if (couponCode) {
+    message += `\n🎟️ Use o cupom: *${couponCode}*`;
+  }
+  
+  message += `\n🛒 ${productUrl}`;
+  
+  message += `\n\n☑️ Link do grupo: https://linktr.ee/techdealsbr`;
+  
+  return message;
+};
+
+// useEffect SEMPRE executado (INALTERADO)
+useEffect(() => {
+  if (productData) {
+    const message = generateMessage();
+    setFinalMessage(message);
+  } else {
+    setFinalMessage('');
+  }
+}, [productData, couponCode, storeType, vendorName, discountPercentage, discountValue]);
+
+return generateMessage();
 };
 
 export default MessagePreview;
