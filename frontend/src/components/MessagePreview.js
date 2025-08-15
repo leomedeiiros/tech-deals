@@ -11,18 +11,7 @@ const MessagePreview = ({
  setFinalMessage
 }) => {
  
- // NOVA LÓGICA: Se for mensagem da Shopee, usar a mensagem convertida
- if (productData && productData.isShopeeMessage) {
-   useEffect(() => {
-     if (productData.convertedMessage) {
-       setFinalMessage(productData.convertedMessage);
-     }
-   }, [productData, setFinalMessage]);
-   
-   return productData.convertedMessage || 'Processando mensagem da Shopee...';
- }
- 
- // LÓGICA ORIGINAL PARA OUTROS PRODUTOS (não mexer em nada)
+ // LÓGICA ORIGINAL PARA OUTROS PRODUTOS
  const formatPrice = (price) => {
    if (!price) return '';
    
@@ -221,6 +210,12 @@ const MessagePreview = ({
  const generateMessage = () => {
    if (!productData) return '';
    
+   // NOVA LÓGICA: Se for mensagem da Shopee, retornar a mensagem convertida
+   if (productData.isShopeeMessage) {
+     return productData.convertedMessage || 'Processando mensagem da Shopee...';
+   }
+   
+   // LÓGICA ORIGINAL PARA OUTROS PRODUTOS
    const { name, productUrl } = productData;
    
    const rawCurrentPrice = productData.currentPrice;
@@ -289,12 +284,12 @@ const MessagePreview = ({
    return message;
  };
  
+ // CORREÇÃO: useEffect SEMPRE executado, mas com condições DENTRO
  useEffect(() => {
    if (productData) {
      const message = generateMessage();
      setFinalMessage(message);
    } else {
-     // CORREÇÃO 4: Limpar mensagem quando não há produto
      setFinalMessage('');
    }
  }, [productData, couponCode, storeType, vendorName, discountPercentage, discountValue]);
