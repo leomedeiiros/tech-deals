@@ -21,55 +21,7 @@ exports.scrapeProduct = async (req, res) => {
 
     console.log(`Iniciando scraping para URL: ${url}`);
     
-    // NOVA LÓGICA: Verificar se é mensagem da Shopee PRIMEIRO
-    if (isShopeeMessage(url)) {
-      console.log('Detectada mensagem da Shopee, processando...');
-      try {
-        const processedData = await processShopeeMessage(url);
-        console.log('Mensagem da Shopee processada com sucesso:', processedData);
-        return res.json(processedData);
-      } catch (error) {
-        console.error('Erro ao processar mensagem da Shopee:', error);
-        return res.status(500).json({ 
-          error: 'Falha ao processar mensagem da Shopee', 
-          details: error.message 
-        });
-      }
-    }
-    
-    // NOVA LÓGICA: Verificar se é mensagem do Kabum
-    if (isKabumMessage(url)) {
-      console.log('Detectada mensagem do Kabum, processando...');
-      try {
-        const processedData = await processKabumMessage(url);
-        console.log('Mensagem do Kabum processada com sucesso:', processedData);
-        return res.json(processedData);
-      } catch (error) {
-        console.error('Erro ao processar mensagem do Kabum:', error);
-        return res.status(500).json({ 
-          error: 'Falha ao processar mensagem do Kabum', 
-          details: error.message 
-        });
-      }
-    }
-    
-    // NOVA LÓGICA: Verificar se é mensagem da AliExpress
-    if (isAliExpressMessage(url)) {
-      console.log('Detectada mensagem da AliExpress, processando...');
-      try {
-        const processedData = await processAliExpressMessage(url);
-        console.log('Mensagem da AliExpress processada com sucesso:', processedData);
-        return res.json(processedData);
-      } catch (error) {
-        console.error('Erro ao processar mensagem da AliExpress:', error);
-        return res.status(500).json({ 
-          error: 'Falha ao processar mensagem da AliExpress', 
-          details: error.message 
-        });
-      }
-    }
-    
-    // LÓGICA ORIGINAL INALTERADA
+    // LÓGICA ORIGINAL PRIMEIRO - VERIFICAR LINKS DIRETOS ANTES DAS MENSAGENS
     
     // Verificar se é link de afiliado do Mercado Livre
     const isMercadoLivreAffiliate = url.includes('mercadolivre.com/sec/') || url.includes('mercadolibre.com/sec/');
@@ -83,7 +35,7 @@ exports.scrapeProduct = async (req, res) => {
     // Verificar se é link de afiliado da Shopee
     const isShopeeAffiliate = url.includes('shopee.com.br') || url.includes('s.shopee.com.br');
     
-    // Verificar se os links de afiliados podem ser passados diretamente para os scrapers específicos
+    // PROCESSAR LINKS DIRETOS PRIMEIRO (LÓGICA ORIGINAL)
     if (isMercadoLivreAffiliate) {
       console.log('Link de afiliado do Mercado Livre detectado. Usando scraper direto.');
       const productData = await mercadoLivreScraper.scrapeProductData(url);
@@ -136,6 +88,58 @@ exports.scrapeProduct = async (req, res) => {
       return res.json(productData);
     }
     
+    // AGORA SIM - VERIFICAR SE É MENSAGEM (DEPOIS DOS LINKS DIRETOS)
+    
+    // Verificar se é mensagem da Shopee
+    if (isShopeeMessage(url)) {
+      console.log('Detectada mensagem da Shopee, processando...');
+      try {
+        const processedData = await processShopeeMessage(url);
+        console.log('Mensagem da Shopee processada com sucesso:', processedData);
+        return res.json(processedData);
+      } catch (error) {
+        console.error('Erro ao processar mensagem da Shopee:', error);
+        return res.status(500).json({ 
+          error: 'Falha ao processar mensagem da Shopee', 
+          details: error.message 
+        });
+      }
+    }
+    
+    // Verificar se é mensagem do Kabum
+    if (isKabumMessage(url)) {
+      console.log('Detectada mensagem do Kabum, processando...');
+      try {
+        const processedData = await processKabumMessage(url);
+        console.log('Mensagem do Kabum processada com sucesso:', processedData);
+        return res.json(processedData);
+      } catch (error) {
+        console.error('Erro ao processar mensagem do Kabum:', error);
+        return res.status(500).json({ 
+          error: 'Falha ao processar mensagem do Kabum', 
+          details: error.message 
+        });
+      }
+    }
+    
+    // Verificar se é mensagem da AliExpress
+    if (isAliExpressMessage(url)) {
+      console.log('Detectada mensagem da AliExpress, processando...');
+      try {
+        const processedData = await processAliExpressMessage(url);
+        console.log('Mensagem da AliExpress processada com sucesso:', processedData);
+        return res.json(processedData);
+      } catch (error) {
+        console.error('Erro ao processar mensagem da AliExpress:', error);
+        return res.status(500).json({ 
+          error: 'Falha ao processar mensagem da AliExpress', 
+          details: error.message 
+        });
+      }
+    }
+    
+    // RESTO DA LÓGICA ORIGINAL INALTERADA
+    
     // Para outros links, resolver URL e determinar qual scraper usar
     const resolvedUrl = await linkResolver.resolveUrl(url);
     console.log(`URL resolvida: ${resolvedUrl}`);
@@ -165,7 +169,7 @@ exports.scrapeProduct = async (req, res) => {
       resolvedUrl.includes('nike.com.br') || 
       resolvedUrl.includes('nike.com/br') ||
       resolvedUrl.includes('nike.com/tenis') ||
-      resolvedUrl.includes('nike.com') // CORREÇÃO: Incluir qualquer domínio Nike
+      resolvedUrl.includes('nike.com')
     ) {
       console.log('Usando Nike Scraper');
       productData = await nikeScraper.scrapeProductData(resolvedUrl);
