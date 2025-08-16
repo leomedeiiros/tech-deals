@@ -4,7 +4,6 @@ const mercadoLivreScraper = require('../services/mercadoLivreScraper');
 const centauroScraper = require('../services/centauroScraper');
 const netshoesScraper = require('../services/netshoesScraper');
 const nikeScraper = require('../services/nikeScraper');
-const shopeeScraper = require('../services/shopeeScraper');
 const linkResolver = require('../utils/linkResolver');
 const whatsappService = require('../services/whatsappService');
 const geminiService = require('../services/geminiService');
@@ -120,18 +119,22 @@ exports.scrapeProduct = async (req, res) => {
     }
     
     if (isShopeeAffiliate) {
-      console.log('Link da Shopee detectado. Usando scraper direto.');
+      console.log('Link da Shopee detectado. Usando fallback.');
       
-      // Para Shopee, sempre retornamos os dados mesmo que sejam limitados
-      const productData = await shopeeScraper.scrapeProductData(url);
-      productData.productUrl = url;
-      console.log('Dados do produto extraídos com sucesso:', productData);
+      // Para Shopee links normais, usar fallback simples
+      const productData = {
+        name: 'Produto da Shopee',
+        currentPrice: '39',
+        originalPrice: '79',
+        imageUrl: '',
+        vendor: 'Shopee',
+        platform: 'shopee',
+        productUrl: url,
+        isPlaceholder: true,
+        message: 'Dados obtidos de forma limitada. Use mensagens completas para melhor processamento.'
+      };
       
-      // Se é um placeholder, indicamos na resposta mas não tratamos como erro
-      if (productData.isPlaceholder) {
-        console.log('Dados limitados da Shopee - usando fallback');
-      }
-      
+      console.log('Dados de fallback da Shopee:', productData);
       return res.json(productData);
     }
     
@@ -164,20 +167,23 @@ exports.scrapeProduct = async (req, res) => {
       resolvedUrl.includes('nike.com.br') || 
       resolvedUrl.includes('nike.com/br') ||
       resolvedUrl.includes('nike.com/tenis') ||
-      resolvedUrl.includes('nike.com') // CORREÇÃO: Incluir qualquer domínio Nike
+      resolvedUrl.includes('nike.com')
     ) {
       console.log('Usando Nike Scraper');
       productData = await nikeScraper.scrapeProductData(resolvedUrl);
     } else if (
       resolvedUrl.includes('shopee.com.br')
     ) {
-      console.log('Usando Shopee Scraper');
-      productData = await shopeeScraper.scrapeProductData(resolvedUrl);
-      
-      // Para Shopee, mesmo com dados limitados, continuamos
-      if (productData.isPlaceholder) {
-        console.log('Dados limitados da Shopee - usando fallback');
-      }
+      console.log('Usando fallback da Shopee (URL resolvida)');
+      productData = {
+        name: 'Produto da Shopee',
+        currentPrice: '39',
+        originalPrice: '79',
+        imageUrl: '',
+        vendor: 'Shopee',
+        platform: 'shopee',
+        isPlaceholder: true
+      };
     } else {
       return res.status(400).json({ error: 'URL não suportada. Apenas Amazon, Mercado Livre, Centauro, Netshoes, Nike e Shopee são suportados.' });
     }
