@@ -9,6 +9,7 @@ const whatsappService = require('../services/whatsappService');
 const geminiService = require('../services/geminiService');
 const { isShopeeMessage, processShopeeMessage } = require('../services/shopeeMessageProcessor');
 const { isKabumMessage, processKabumMessage } = require('../services/kabumMessageProcessor');
+const { isAliExpressMessage, processAliExpressMessage } = require('../services/aliexpressMessageProcessor');
 
 exports.scrapeProduct = async (req, res) => {
   try {
@@ -47,6 +48,22 @@ exports.scrapeProduct = async (req, res) => {
         console.error('Erro ao processar mensagem do Kabum:', error);
         return res.status(500).json({ 
           error: 'Falha ao processar mensagem do Kabum', 
+          details: error.message 
+        });
+      }
+    }
+    
+    // NOVA LÓGICA: Verificar se é mensagem da AliExpress
+    if (isAliExpressMessage(url)) {
+      console.log('Detectada mensagem da AliExpress, processando...');
+      try {
+        const processedData = await processAliExpressMessage(url);
+        console.log('Mensagem da AliExpress processada com sucesso:', processedData);
+        return res.json(processedData);
+      } catch (error) {
+        console.error('Erro ao processar mensagem da AliExpress:', error);
+        return res.status(500).json({ 
+          error: 'Falha ao processar mensagem da AliExpress', 
           details: error.message 
         });
       }

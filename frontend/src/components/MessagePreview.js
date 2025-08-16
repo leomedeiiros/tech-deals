@@ -175,78 +175,84 @@ const MessagePreview = ({
      
      if (isMercadoLivre) {
        if (productData.vendor && productData.vendor !== 'Mercado Livre') {
-         const cleanName = cleanVendorName(productData.vendor);
-         return `Loja oficial ${cleanName} no Mercado Livre`;
-       }
-       return 'Loja oficial no Mercado Livre';
-     }
-     
-     return 'Loja oficial no Mercado Livre';
-   }
-   
-   if (storeType === 'loja_validada') {
-     if (isShopee) {
-       return 'Loja validada na Shopee';
-     }
-     return 'Loja validada no Mercado Livre';
-   }
-   
-   if (storeType === 'catalogo') {
-     if (vendorName && vendorName.trim() !== '') {
-       return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor '${vendorName}' (loja oficial)`;
-     } else {
-       return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor 'Informe o nome do vendedor' (loja oficial)`;
-     }
-   }
-   
-   return '';
- };
- 
- const isAmazon = storeType === 'amazon' || 
-                 (productData && productData.vendor === 'Amazon') ||
-                 (productData && productData.platform && 
-                  productData.platform.toLowerCase().includes('amazon'));
- 
- const generateMessage = () => {
-   if (!productData) return '';
-   
-   // NOVA LÓGICA PARA SHOPEE: Se for mensagem da Shopee, retornar a mensagem formatada
-   if (productData.isShopeeMessage && productData.convertedMessage) {
-     return productData.convertedMessage;
-   }
-   
-   // NOVA LÓGICA PARA KABUM: Se for mensagem do Kabum, retornar a mensagem formatada
-   if (productData.isKabumMessage && productData.convertedMessage) {
-     return productData.convertedMessage;
-   }
-   
-   // LÓGICA ORIGINAL PARA OUTROS PRODUTOS (INALTERADA)
-   const { name, productUrl } = productData;
-   
-   const rawCurrentPrice = productData.currentPrice;
-   const rawOriginalPrice = productData.originalPrice;
-   
-   const processedCurrentPrice = productData.displayPrice || formatPrice(rawCurrentPrice);
-   const processedOriginalPrice = productData.displayOriginalPrice || formatPrice(rawOriginalPrice);
-   
-   console.log("Preços para mensagem:", {
-     rawCurrent: rawCurrentPrice,
-     rawOriginal: rawOriginalPrice,
-     processed: processedCurrentPrice,
-     processedOriginal: processedOriginalPrice
-   });
-   
-   const storeTypeText = getStoreTypeText();
-   
-   let priceText = '';
-   
-   let finalPrice = processedCurrentPrice;
-   let calculatedPrice;
-   
-   if (discountPercentage) {
-     calculatedPrice = calculatePercentageDiscount(rawCurrentPrice);
-     if (calculatedPrice === "1" || calculatedPrice === "2" || calculatedPrice === "3") {
-       console.log("Ajuste para desconto percentual aplicado");finalPrice = processedCurrentPrice;
+        const cleanName = cleanVendorName(productData.vendor);
+        return `Loja oficial ${cleanName} no Mercado Livre`;
+      }
+      return 'Loja oficial no Mercado Livre';
+    }
+    
+    return 'Loja oficial no Mercado Livre';
+  }
+  
+  if (storeType === 'loja_validada') {
+    if (isShopee) {
+      return 'Loja validada na Shopee';
+    }
+    return 'Loja validada no Mercado Livre';
+  }
+  
+  if (storeType === 'catalogo') {
+    if (vendorName && vendorName.trim() !== '') {
+      return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor '${vendorName}' (loja oficial)`;
+    } else {
+      return `⚠️ No anúncio, localize o campo 'Outras opções de compra' e selecione o vendedor 'Informe o nome do vendedor' (loja oficial)`;
+    }
+  }
+  
+  return '';
+};
+
+const isAmazon = storeType === 'amazon' || 
+                (productData && productData.vendor === 'Amazon') ||
+                (productData && productData.platform && 
+                 productData.platform.toLowerCase().includes('amazon'));
+
+const generateMessage = () => {
+  if (!productData) return '';
+  
+  // NOVA LÓGICA PARA SHOPEE: Se for mensagem da Shopee, retornar a mensagem formatada
+  if (productData.isShopeeMessage && productData.convertedMessage) {
+    return productData.convertedMessage;
+  }
+  
+  // NOVA LÓGICA PARA KABUM: Se for mensagem do Kabum, retornar a mensagem formatada
+  if (productData.isKabumMessage && productData.convertedMessage) {
+    return productData.convertedMessage;
+  }
+  
+  // NOVA LÓGICA PARA ALIEXPRESS: Se for mensagem da AliExpress, retornar a mensagem formatada
+  if (productData.isAliExpressMessage && productData.convertedMessage) {
+    return productData.convertedMessage;
+  }
+  
+  // LÓGICA ORIGINAL PARA OUTROS PRODUTOS (INALTERADA)
+  const { name, productUrl } = productData;
+  
+  const rawCurrentPrice = productData.currentPrice;
+  const rawOriginalPrice = productData.originalPrice;
+  
+  const processedCurrentPrice = productData.displayPrice || formatPrice(rawCurrentPrice);
+  const processedOriginalPrice = productData.displayOriginalPrice || formatPrice(rawOriginalPrice);
+  
+  console.log("Preços para mensagem:", {
+    rawCurrent: rawCurrentPrice,
+    rawOriginal: rawOriginalPrice,
+    processed: processedCurrentPrice,
+    processedOriginal: processedOriginalPrice
+  });
+  
+  const storeTypeText = getStoreTypeText();
+  
+  let priceText = '';
+  
+  let finalPrice = processedCurrentPrice;
+  let calculatedPrice;
+  
+  if (discountPercentage) {
+    calculatedPrice = calculatePercentageDiscount(rawCurrentPrice);
+    if (calculatedPrice === "1" || calculatedPrice === "2" || calculatedPrice === "3") {
+      console.log("Ajuste para desconto percentual aplicado");
+      finalPrice = processedCurrentPrice;
     } else {
       finalPrice = calculatedPrice;
     }
