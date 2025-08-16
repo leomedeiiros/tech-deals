@@ -15,7 +15,7 @@ const isAliExpressMessage = (text) => {
   return hasAliLink && hasStructuredText;
 };
 
-// Função para extrair dados da mensagem
+// Função para extrair dados da mensagem (CORRIGIDA)
 const extractMessageData = (message) => {
   console.log('[ALIEXPRESS-MSG] Extraindo dados da mensagem...');
   
@@ -28,67 +28,65 @@ const extractMessageData = (message) => {
     extraMoedas: ''
   };
   
-  const lines = message.split('\n').map(line => line.trim()).filter(line => line);
+  // PRIMEIRO: Extrair o link da AliExpress
+  const linkMatch = message.match(/https?:\/\/s\.click\.aliexpress\.com\/e\/[A-Za-z0-9_]+/);
+  if (linkMatch) {
+    data.link = linkMatch[0];
+    console.log('[ALIEXPRESS-MSG] Link encontrado:', data.link);
+  }
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Extrair nome do produto (linha com 🚨 ou primeira linha se não tiver emoji)
-    if ((line.includes('🚨') || line.includes('➡️')) && !data.productName) {
-      data.productName = line.replace(/🚨|➡️|\*/g, '').trim();
-    } else if (!data.productName && i === 0 && !line.includes('💵') && !line.includes('🎟')) {
-      data.productName = line.trim();
-    }
-    
-    // Extrair preço (linha com 💵 ou que tem R$)
-    if ((line.includes('💵') || line.includes('R$')) && !data.price) {
-      const priceMatch = line.match(/R\$\s*(\d+(?:[.,]\d+)?)/);
-      if (priceMatch) {
-        data.price = priceMatch[1];
-        
-        // Verificar se há moedas na mesma linha
-        const restOfLine = line.split(`R$ ${data.price}`)[1];
-        if (restOfLine && restOfLine.includes('moedas')) {
-          const moedaMatch = restOfLine.match(/(\d+)\s*moedas/);
-          if (moedaMatch) {
-            data.extraMoedas = moedaMatch[1];
-          }
-        }
+  // SEGUNDO: Extrair nome do produto (tudo ANTES do preço R$ e SEM o link)
+  let cleanMessage = message.replace(data.link, ''); // Remove o link
+  const beforePrice = cleanMessage.split(/R\$/)[0];
+  if (beforePrice) {
+    data.productName = beforePrice
+      .replace(/🚨|💥|⚡|🔥|🎯|➡️|✔️|🎟|💵|\*/g, '') // Remover emojis
+      .replace(/LINK/gi, '') // Remover palavra "LINK"
+      .replace(/\s+/g, ' ') // Normalizar espaços
+      .trim();
+  }
+  
+  // TERCEIRO: Extrair preço (R$ XXX)
+  const priceMatch = message.match(/R\$\s*(\d+(?:[.,]\d+)?)/);
+  if (priceMatch) {
+    data.price = priceMatch[1];
+  }
+  
+  // QUARTO: Extrair moedas (XXX moedas)
+  const moedaMatch = message.match(/(\d+)\s*moedas/i);
+  if (moedaMatch) {
+    data.extraMoedas = moedaMatch[1];
+  }
+  
+  // QUINTO: Extrair cupons (tudo que parece cupom)
+  const cupomPatterns = [
+    /cupom[:\s]*([A-Z0-9]+)/gi,
+    /([A-Z]{3,}[0-9]{2,})/g, // Padrão ASGARD4104, IFPASOE
+  ];
+  
+  const cuponsFound = [];
+  for (const pattern of cupomPatterns) {
+    let match;
+    while ((match = pattern.exec(message)) !== null) {
+      const cupom = match[1];
+      if (cupom && cupom.length >= 4 && cupom.length <= 15) {
+        cuponsFound.push(cupom);
       }
     }
-    
-    // Extrair cupom (linha com 🎟 ou "Cupom:")
-    if ((line.includes('🎟') || line.toLowerCase().includes('cupom')) && !data.couponInfo) {
-      const couponPatterns = [
-        /🎟\s*Cupom:\s*([^\n\r]+)/i,
-        /Cupom:\s*`([^`]+)`\s*([^h]+)/i,
-        /Cupom:\s*([^\n\r]+)/i
-      ];
-      
-      for (const pattern of couponPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          if (match[2]) {
-            data.couponInfo = `${match[1]} + ${match[2]}`.replace(/https?:\/\/[^\s]+/g, '').trim();
-          } else {
-            data.couponInfo = match[1].replace(/https?:\/\/[^\s]+/g, '').trim();
-          }
-          break;
-        }
-      }
-    }
-    
-    // Extrair link (linha que começa com https)
-    if (line.startsWith('https://s.click.aliexpress.com') && !data.link) {
-      data.link = line;
-    }
-    
-    // Extrair informação extra (linhas após ⚠️)
-    if (line.includes('⚠️') && i + 1 < lines.length) {
-      const nextLines = lines.slice(i + 1).join(' ').trim();
-      if (nextLines) {
-        data.extraInfo = nextLines;
-      }
+  }
+  
+  if (cuponsFound.length > 0) {
+    data.couponInfo = cuponsFound.join(' + ');
+  }
+  
+  // SEXTO: Informações extras (após APP ou antes do link)
+  const appIndex = message.toLowerCase().indexOf('app');
+  const linkIndex = message.indexOf(data.link);
+  
+  if (appIndex !== -1 && linkIndex !== -1 && appIndex < linkIndex) {
+    const afterApp = message.substring(appIndex + 3, linkIndex).trim();
+    if (afterApp && afterApp.length > 0) {
+      data.extraInfo = afterApp.replace(/LINK/gi, '').trim();
     }
   }
   
